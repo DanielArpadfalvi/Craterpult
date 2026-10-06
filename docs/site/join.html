@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Craterpult – Join a match</title>
+    <meta name="title-en" content="Craterpult – Join a match" />
+    <meta name="title-hu" content="Craterpult – Csatlakozás" />
+    <meta name="theme-color" content="#05040f" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="icon-192.png" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="lang.js"></script>
+    <style>
+      .code {
+        margin: 18px 0;
+        font-size: 40px;
+        font-weight: 900;
+        letter-spacing: 0.2em;
+        text-align: center;
+        color: #3ef0ff;
+      }
+      .open {
+        display: block;
+        margin: 0 auto;
+        padding: 14px 22px;
+        border-radius: 14px;
+        border: 2px solid #3ef0ff;
+        color: #fff;
+        text-align: center;
+        text-decoration: none;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="brand" href="./"><img src="icon-192.png" alt="" />Craterpult</a>
+        <nav class="langs" aria-label="Language">
+          <button type="button" data-set-lang="en">EN</button>
+          <button type="button" data-set-lang="hu">HU</button>
+        </nav>
+      </header>
+
+      <main lang="en">
+        <h1>You are invited to a match</h1>
+        <p class="code" data-code>——————</p>
+        <a class="open" data-open href="#">Open in Craterpult</a>
+        <p>
+          If the button does nothing, open Craterpult, tap <strong>Online</strong> →
+          <strong>Join a friend</strong> and type in the code above.
+        </p>
+      </main>
+
+      <main lang="hu">
+        <h1>Meghívtak egy meccsre</h1>
+        <p class="code" data-code>——————</p>
+        <a class="open" data-open href="#">Megnyitás a Craterpultban</a>
+        <p>
+          Ha a gomb nem csinál semmit, nyisd meg a Craterpultot, koppints az
+          <strong>Online</strong> → <strong>Csatlakozás baráthoz</strong> gombra, és írd be a
+          fenti kódot.
+        </p>
+      </main>
+    </div>
+    <script>
+      // ?code=ABCDEF → show it and link to craterpult://join/ABCDEF (only safe characters pass).
+      (function () {
+        var raw = new URLSearchParams(location.search).get('code') || '';
+        var code = raw.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
+        if (code.length !== 6) return;
+        var shown = document.querySelectorAll('[data-code]');
+        for (var i = 0; i < shown.length; i++) shown[i].textContent = code;
+        var links = document.querySelectorAll('[data-open]');
+        for (var j = 0; j < links.length; j++) links[j].href = 'craterpult://join/' + code;
+      })();
+    </script>
+  </body>
+</html>

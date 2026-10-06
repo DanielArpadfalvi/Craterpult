@@ -174,8 +174,8 @@ export class SupabaseOnline implements OnlineService {
     await this.rpc('cancel_match', { match_id: id });
   }
 
-  async registerPushToken(token: string, platform: 'android' | 'ios'): Promise<void> {
-    await this.rpc('register_push_token', { token, platform });
+  async registerPushToken(token: string, platform: 'android' | 'ios', lang: string): Promise<void> {
+    await this.rpc('register_push_token', { token, platform, lang });
   }
 }
 

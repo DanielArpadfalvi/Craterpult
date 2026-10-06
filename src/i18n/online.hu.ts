@@ -30,7 +30,7 @@ export const ONLINE_HU: Record<keyof typeof ONLINE_EN, string> = {
   'online.share': 'Megosztás',
   'online.copied': 'Meghívó vágólapra másolva',
   'online.cancel': 'Visszavonás',
-  'online.shareMessage': 'Játssz velem Craterpultot! Online → Csatlakozás baráthoz, kód: {code}',
+  'online.shareMessage': 'Játssz velem Craterpultot! Meghívókód: {code} – {url}',
   'online.play': 'Játék',
   'online.view': 'Megnyitás',
   'online.resign': 'Feladás',

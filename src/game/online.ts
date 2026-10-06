@@ -14,6 +14,7 @@ import {
   type OnlineService,
 } from '../net/types';
 import type { JsonValue, Storage } from '../platform/types';
+import { joinUrl } from './links';
 import type { UiState } from './state';
 import type { Store } from './store';
 
@@ -305,7 +306,7 @@ export function createOnline(d: OnlineDeps): OnlineController {
     async onlineShare(id) {
       const m = ui().matches.find((x) => x.id === id);
       if (!m) return;
-      const how = await d.share(d.t('online.shareMessage', { code: m.code }));
+      const how = await d.share(d.t('online.shareMessage', { code: m.code, url: joinUrl(m.code) }));
       if (how === 'copied') d.toast(d.t('online.copied'));
     },
     onlineDismissInvite() {

@@ -1347,7 +1347,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (store.get().online.error || store.get().paywall.open) return;
       const reg = await platform.push.register();
       if (reg)
-        await onlineService.registerPushToken(reg.token, reg.platform).catch(() => undefined);
+        await onlineService
+          .registerPushToken(reg.token, reg.platform, getLanguage())
+          .catch(() => undefined);
     };
   }
   // Invite links (`craterpult://join/CODE`; `?join=CODE` on the web) and push taps.

@@ -69,8 +69,8 @@ export interface OnlineService {
   resign(id: string): Promise<OnlineMatch>;
   /** Removes an open match nobody joined yet (creator only). */
   cancel(id: string): Promise<void>;
-  /** Device token for "your turn" pushes (FCM / APNs). */
-  registerPushToken(token: string, platform: 'android' | 'ios'): Promise<void>;
+  /** Device token for "your turn" pushes (FCM / APNs) and the language of their text. */
+  registerPushToken(token: string, platform: 'android' | 'ios', lang: string): Promise<void>;
 }
 
 export function isMyTurn(m: OnlineMatch): boolean {

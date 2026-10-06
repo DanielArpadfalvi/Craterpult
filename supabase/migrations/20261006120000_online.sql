@@ -40,6 +40,7 @@ create table public.push_tokens (
   user_id uuid not null default auth.uid(),
   token text not null,
   platform text not null check (platform in ('android', 'ios')),
+  lang text not null default 'en' check (lang in ('en', 'hu')),
   updated_at timestamptz not null default now(),
   primary key (user_id, token)
 );
@@ -239,12 +240,13 @@ returns void language sql security definer set search_path = '' as $$
   where x.id = cancel_match.match_id and x.status = 'open' and x.players[2] = auth.uid();
 $$;
 
-create or replace function public.register_push_token(token text, platform text)
+create or replace function public.register_push_token(token text, platform text, lang text)
 returns void language sql security definer set search_path = '' as $$
-  insert into public.push_tokens (user_id, token, platform)
-    values (auth.uid(), left(register_push_token.token, 512), register_push_token.platform)
+  insert into public.push_tokens (user_id, token, platform, lang)
+    values (auth.uid(), left(register_push_token.token, 512), register_push_token.platform,
+            case when register_push_token.lang = 'hu' then 'hu' else 'en' end)
   on conflict (user_id, token)
-    do update set updated_at = now(), platform = excluded.platform;
+    do update set updated_at = now(), platform = excluded.platform, lang = excluded.lang;
 $$;
 
 revoke all on function public.match_view(public.matches) from public, anon;
@@ -255,7 +257,7 @@ revoke all on function public.get_match(uuid) from public, anon;
 revoke all on function public.submit_turn(uuid, jsonb, int, int) from public, anon;
 revoke all on function public.resign_match(uuid) from public, anon;
 revoke all on function public.cancel_match(uuid) from public, anon;
-revoke all on function public.register_push_token(text, text) from public, anon;
+revoke all on function public.register_push_token(text, text, text) from public, anon;
 grant execute on function public.create_match(jsonb, text) to authenticated;
 grant execute on function public.join_match(text, text) to authenticated;
 grant execute on function public.my_matches() to authenticated;
@@ -263,4 +265,4 @@ grant execute on function public.get_match(uuid) to authenticated;
 grant execute on function public.submit_turn(uuid, jsonb, int, int) to authenticated;
 grant execute on function public.resign_match(uuid) to authenticated;
 grant execute on function public.cancel_match(uuid) to authenticated;
-grant execute on function public.register_push_token(text, text) to authenticated;
+grant execute on function public.register_push_token(text, text, text) to authenticated;

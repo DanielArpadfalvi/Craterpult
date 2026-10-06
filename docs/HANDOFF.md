@@ -1,6 +1,6 @@
 # Craterpult – átadási jegyzet (hideg indulás lokális sessionből)
 
-Utolsó frissítés: 2026-10-06. A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`.
+Utolsó frissítés: 2026-10-06 (M9 merge után). A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
 
 ## 1. Hol tart a projekt
 
@@ -16,32 +16,35 @@ Körökre osztott artillery (Worms-szerű, saját IP) portré mobilra: rombolhat
 | M5 30 küldetés, gyors meccs beállítások, napi kihívás | ✅ |
 | M6 Beállítások, statisztika, csapat-testreszabás, vissza gomb, menü | ✅ (main: `9e2cfe1`) |
 | M7 Mobil héj (Capacitor, ikon/splash kódból, Android/iOS CI), T7.2 paywall | ✅ (T7.2 merge a main-re: 2026-10-06) |
-| M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA) | ⬜ |
-| M9 1.1 online (aszinkron meccs) | ⬜ |
+| M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA T8.1–T8.3) | ✅ kód kész; T8.4 tulajdonosi lépések: RevenueCat + sandbox vásárlás eszközön |
+| M9 1.1 online (aszinkron meccs) | ✅ kód kész, mock backenddel tesztelve; T9.2: Supabase-projekt + push-kulcsok (tulajdonos), két eszközös teszt |
 
-Tesztek a main-en: 243 unit (`npm run check`), 29 e2e (`npm run test:e2e`) – mind zöld a T7.2 merge után. Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow zöld volt az M7 merge-en; az M6 push CI-ját nézd meg.
+Tesztek a main-en: 288+ unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
 
 ## 2. Félkész munkák és ágak
 
-- **`t7.2-paywall`**: **merge-elve a main-re** (2026-10-06). RevenueCat „Teljes verzió” paywall + restore, gating (`src/game/entitlement.ts`, `src/game/monetization.ts`), mock store webre, „store unavailable” natívon kulcs nélkül, `paywall.spec.ts`, RELEASE.md 6. fejezet. Az M6-tal való ütközések feloldása: `App.tsx` a sheetet és a `PaywallSheet`-et is rendereli (a paywall mindig felül); a lakat-jelvények a `QuickScreen` chipjein vannak, a `FullVersionButton` a főmenüben a „menu-play” sor alatt; a haptika a `save.settings.haptics`-et nézi (a `muted` megszűnt); a díszkalapok (Korona/Szarvak/Glória) `hatNeedsFull()` szerint zárolva (`src/game/profile.ts`, Team képernyő: zárolt kalapra koppintás → paywall `hats` indokkal; a sima csapatformák ingyenesek). Az ág a remote-on megmaradt.
-- **T3.3 pályatémák:** kész és a main-en (5 téma: hills, islands, cavern, towers, flats; `src/render/themes.ts`, `backdrop.ts`, `ambient.ts`). A `t3.3-themes` ág is pusholva maradt (`0efb2a8`).
+- **M9 online:** `m9-online` ágon készült, merge-elve a main-re (2026-10-06). Részletek, döntés (Supabase), architektúra és a **tulajdonosi beállítási lépések**: `docs/ONLINE.md`. A játék csak az `OnlineService` interfészt látja; weben/tesztben localStorage-mock, natívon backend-config nélkül „nem érhető el”.
+- **T8.3** (orchestrator session agentje): kamera-túra a meccs elején, képernyőn kívüli ellenfél-nyilak, kampány-egyensúly (`npm run sim:campaign`), HUD csak változáskor – a main-en (`8a90b5c`).
+- Régi ágak a remote-on: `t7.2-paywall`, `t3.3-themes` (merge-elve, csak archívum).
 
 ## 3. Nyitott döntések / ismert hibák
 
+- **Tulajdonosi döntés kell:** Supabase-projekt létrehozása (melyik fiók/régió, ingyenes szint) – amíg nincs, natívon az Online nem érhető el. Push: Firebase-projekt + APNs-kulcs. Lásd `docs/ONLINE.md` 4.
+- A 1.1 kiadása előtt az adatvédelmi oldalt és a store-kérdőívet bővíteni kell az online adatokkal (anonim azonosító, csapatnév, körök, push-token).
 - Valódi vásárlás (StoreKit/Play Billing, RevenueCat) még sosem futott: kell RevenueCat projekt, termék `craterpult_full_version`, entitlement `full_version`, secretek `VITE_RC_API_KEY_IOS/ANDROID`.
-- Az adatvédelmi oldal tartalma **pusholva** a `DanielArpadfalvi/craterpult-site` repóba (2026-10-06, `scripts/publish-site.sh ../craterpult-site`, SSH remote), de a **GitHub Pages még nincs bekapcsolva** (Settings → Pages → Deploy from a branch → main / root) – addig a `https://danielarpadfalvi.github.io/craterpult-site/privacy.html` 404. A `craterpult.support@gmail.com` postafiók létezik.
-- Valódi telefonon még nem futott (haptika, státuszsor, splash, háttérbe tett app → szünet). Natív build csak GitHub Actionsben.
-- A 3. fejezet (ász botok) nehézsége nincs végigjátszva; kampány-egyensúly finomhangolás kell.
+- A weboldal él: `https://danielarpadfalvi.github.io/craterpult-site/` (privacy, support, join). Frissítés: `scripts/publish-site.sh ../craterpult-site`, majd commit + push abban a repóban.
+- Valódi telefonon még nem futott (haptika, státuszsor, splash, háttérbe tett app → szünet, push, deep link). Natív build csak GitHub Actionsben.
+- Online korlátok (1.1): a saját kör közbeni kilépés után a kör újrajátszható; a győztest a kliens állítja (a másik kliens hash-sel ellenőrzi); nincs válasz-időkorlát.
 - Ládák korlátozott arzenálú küldetésekben más fegyvert is adhatnak.
-- E2E: a leglassabb folyamatok (hotseat, stats) terhelt gépen 1,5–2 percig futnak (időkorlát 240 s); unit tesztekben a bot/mapgen tesztek lassú gépen a 20 s korlát közelébe érhetnek.
+- E2E: a leglassabb folyamatok (hotseat, stats) terhelt gépen 1,5–2 percig futnak (időkorlát 240 s).
 - Android debug kulcs a Swaplighté (nem titkos), release-hez saját upload keystore kell.
 
 ## 4. Következő lépések sorrendben
 
-1. ~~`t7.2-paywall` merge a main-re~~ kész; a push utáni CI-t (CI, Android, iOS) ellenőrizni kell.
-2. M8: store-szövegek EN/HU, screenshot-generátor (Swaplight `scripts/store-frames.ts` + `tests/e2e/store-screens.spec.ts` mintájára), adatvédelmi/támogatási weboldal, korhatár-besorolás, teljes QA-kör 3 képernyőméreten EN/HU.
-3. Valódi eszközös teszt a `android-debug-latest` APK-val, egyensúly-finomhangolás (botok, kampány).
-4. M9 (1.1): backend-döntés (javaslat: Supabase), aszinkron meccs.
+1. CI (CI, Android, iOS) ellenőrzése a legutóbbi push után.
+2. Tulajdonos: RevenueCat (T8.4), Supabase + push (T9.2) – utána valódi eszközös teszt (vásárlás, két eszközös online meccs).
+3. 1.0 kiadás a store-okba (`docs/RELEASE.md`, checklisták); 1.1-hez adatvédelmi oldal + kérdőív frissítése.
+4. Online továbbfejlesztés (ötletek): kör-kezdés jelzése a szervernek (újrapróbálás ellen), válasz-időkorlát, visszavágó gomb, barátlista.
 
 ## 5. Dashboard
 

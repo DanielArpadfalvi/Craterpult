@@ -10,6 +10,8 @@ export default tseslint.config(
       'sourcemaps',
       'android',
       'ios',
+      // Deno edge functions (Supabase runtime, not part of the app build).
+      'supabase/functions',
       'coverage',
       'test-results',
       'playwright-report',

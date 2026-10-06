@@ -93,8 +93,8 @@ android/, ios/
   ugyanazt számolja – ez az online módhoz kötelező). Unit teszt: azonos seed + input → azonos állapot-hash.
 - **Online (1.1):** a szerver csak a meccs-állapotot (seed, körök input logja, kié a kör) tárolja és push-t küld;
   minden kliens maga szimulál, a kör végén állapot-hash egyezést ellenőriz (csalás/desync jelzés).
-  Backend-jelölt: Supabase (Postgres + Auth anonim/Apple/Google + Edge Functions + push FCM/APNs-en át).
-  Döntés a M7 előtt.
+  Backend: **Supabase** (döntés 2026-10-06, `docs/ONLINE.md`): anonim Auth, RPC-k + RLS, Edge Function a
+  push-hoz (FCM/APNs).
 
 ---
 

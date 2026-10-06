@@ -28,7 +28,7 @@ export const ONLINE_EN = {
   'online.share': 'Share',
   'online.copied': 'Invite copied',
   'online.cancel': 'Cancel',
-  'online.shareMessage': 'Play Craterpult with me! Online → Join a friend, code: {code}',
+  'online.shareMessage': 'Play Craterpult with me! Invite code {code}: {url}',
   'online.play': 'Play',
   'online.view': 'Open',
   'online.resign': 'Resign',
