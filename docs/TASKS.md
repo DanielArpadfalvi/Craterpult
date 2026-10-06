@@ -3,14 +3,14 @@
 Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance criteria (AC) must all hold.
 
 ## M0 – Foundation
-- [ ] **T0.1 Scaffold** – Vite + TS strict, ESLint + Prettier, Vitest, Playwright (Chromium at /opt/pw-browsers), PixiJS v8, Preact. Portrait canvas + DOM overlay. AC: check/build/e2e smoke pass.
-- [ ] **T0.2 CI** – web CI (check, build, e2e).
+- [x] **T0.1 Scaffold** – Vite + TS strict, ESLint + Prettier, Vitest, Playwright (Chromium at /opt/pw-browsers), PixiJS v8, Preact. Portrait canvas + DOM overlay. AC: check/build/e2e smoke pass.
+- [x] **T0.2 CI** – web CI (check, build, e2e).
 
 ## M1 – Core engine (`src/core`)
-- [ ] **T1.1 RNG + fixed-point math** – seeded PRNG, Q16 helpers (mul, div, sqrt, sin/cos tables). AC: unit tests, no floats in core sim state.
-- [ ] **T1.2 Terrain** – mask + materials, circular carve, solidity queries, ground normal, map generator (seeded hills, islands, caves).
-- [ ] **T1.3 Physics** – projectile (gravity, wind, bounce, fuse), unit movement (walk, jump, slide, fall damage), collisions, water.
-- [ ] **T1.4 Turn/match state machine** – teams, turn timer, retreat time, damage resolution, death, win; event stream; input log + replay + state hash. AC: determinism tests.
+- [x] **T1.1 RNG + fixed-point math** – seeded PRNG, Q16 helpers (mul, div, sqrt, sin/cos tables). AC: unit tests, no floats in core sim state.
+- [x] **T1.2 Terrain** – mask + materials, circular carve, solidity queries, ground normal, map generator (seeded hills, islands, caves).
+- [x] **T1.3 Physics** – projectile (gravity, wind, bounce, fuse), unit movement (walk, jump, slide, fall damage), collisions, water.
+- [x] **T1.4 Turn/match state machine** – teams, turn timer, retreat time, damage resolution, death, win; event stream; input log + replay + state hash. AC: determinism tests.
 
 ## M2 – Playable prototype
 - [ ] **T2.1 Renderer** – terrain texture with dirty-rect updates, units, projectiles, camera follow + pinch/pan.
