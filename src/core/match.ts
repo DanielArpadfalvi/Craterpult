@@ -116,6 +116,7 @@ export function createMatch(setup: MatchSetup): MatchState {
     tick: 0,
     rng,
     terrain,
+    mapStyle: map.style ?? 'hills',
     waterLevel: map.waterLevel,
     wind: 0,
     teams,

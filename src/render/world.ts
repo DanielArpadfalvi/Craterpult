@@ -2,9 +2,18 @@ import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { UNIT_HEIGHT } from '../core/constants';
 import { fxToFloat } from '../core/fixed';
 import type { MatchEvent, MatchState, WeaponId } from '../core/types';
+import { AmbientLife } from './ambient';
+import { Backdrop } from './backdrop';
 import type { Camera, Viewport } from './camera';
+import { mix } from './color';
 import { PALETTE, TEAM_SHAPES, teamColor } from './palette';
-import { inflate, paintTerrain } from './terrainPaint';
+import {
+  buildTerrainPalette,
+  inflate,
+  paintTerrain,
+  type TerrainPaintPalette,
+} from './terrainPaint';
+import { themeFor, type Theme } from './themes';
 
 interface UnitView {
   root: Container;
@@ -62,15 +71,15 @@ export function snapshot(s: MatchState): Snapshot {
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 /**
- * Draws a match: sky, parallax hills, the terrain texture (updated per crater), units, projectiles,
- * effects and the water. Reads core state; never mutates it.
+ * Draws a match: the themed backdrop (sky, parallax silhouettes, ambient life), the terrain texture
+ * (updated per crater), units, projectiles, effects and the water. Reads core state; never mutates
+ * it.
  */
 export class WorldView {
   readonly root = new Container();
-  private readonly sky = new Graphics();
-  private readonly stars = new Graphics();
+  private readonly backdrop = new Backdrop();
+  private readonly ambient: AmbientLife;
   readonly world = new Container();
-  private readonly hills = new Graphics();
   private terrainSprite: Sprite | null = null;
   private terrainCanvas: HTMLCanvasElement | null = null;
   private terrainImage: ImageData | null = null;
@@ -95,11 +104,18 @@ export class WorldView {
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   private match: MatchState | null = null;
   private view: Viewport = { width: 1, height: 1 };
+  private theme: Theme = themeFor('hills', '');
+  private terrainPalette: TerrainPaintPalette | null = null;
+  /** Reused water outline buffers (no per-frame allocation). */
+  private readonly waterPts: number[] = [];
+  private readonly waterLine: number[] = [];
 
   constructor() {
-    this.root.addChild(this.sky, this.stars, this.world);
+    this.ambient = new AmbientLife(this.reducedMotion);
+    this.root.addChild(this.backdrop.screen, this.ambient.view, this.world);
     this.world.addChild(
-      this.hills,
+      this.backdrop.far,
+      this.backdrop.near,
       this.unitLayer,
       this.projectiles,
       this.fx,
@@ -130,9 +146,20 @@ export class WorldView {
       this.terrainPixels = new Uint32Array(this.terrainImage.data.buffer);
       this.terrainTexture = Texture.from(canvas);
       this.terrainSprite = new Sprite(this.terrainTexture);
-      this.world.addChildAt(this.terrainSprite, 1);
+      this.world.addChildAt(this.terrainSprite, 2);
     }
-    paintTerrain(s.terrain.cells, width, height, this.terrainPixels as Uint32Array);
+    this.theme = themeFor(s.mapStyle, s.seed);
+    this.terrainPalette = buildTerrainPalette(this.theme.terrain, height);
+    this.backdrop.setTheme(this.theme, width, height);
+    this.ambient.setTheme(this.theme);
+    paintTerrain(
+      s.terrain.cells,
+      width,
+      height,
+      this.terrainPixels as Uint32Array,
+      undefined,
+      this.terrainPalette,
+    );
     this.flushTerrain();
     for (const v of this.units.values()) v.root.destroy({ children: true });
     this.units.clear();
@@ -142,28 +169,17 @@ export class WorldView {
     for (const t of this.texts) t.view.destroy();
     this.texts = [];
     this.shots = [];
-    this.drawHills(width, height, s.waterLevel);
+  }
+
+  /** The visual theme of the bound match. */
+  get currentTheme(): Theme {
+    return this.theme;
   }
 
   resize(view: Viewport): void {
     this.view = view;
-    this.sky.clear();
-    // Vertical gradient as stacked bands (cheap, no texture).
-    const bands = 24;
-    for (let i = 0; i < bands; i++) {
-      const t = i / (bands - 1);
-      this.sky
-        .rect(0, (view.height * i) / bands, view.width, view.height / bands + 1)
-        .fill(mix(PALETTE.skyTop, PALETTE.skyBottom, t));
-    }
-    this.stars.clear();
-    let seed = 7;
-    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 90; i++) {
-      this.stars
-        .circle(rnd() * view.width, rnd() * view.height * 0.7, rnd() < 0.15 ? 1.6 : 0.9)
-        .fill({ color: PALETTE.stars, alpha: 0.25 + rnd() * 0.6 });
-    }
+    this.backdrop.resize(view);
+    this.ambient.resize(view);
   }
 
   /** React to the events of one simulation tick. */
@@ -180,6 +196,7 @@ export class WorldView {
             s.terrain.height,
             this.terrainPixels as Uint32Array,
             r,
+            this.terrainPalette ?? undefined,
           );
           this.flushTerrain();
           break;
@@ -212,7 +229,7 @@ export class WorldView {
               vy: -80 - Math.random() * 140,
               life: 0.7,
               age: 0,
-              color: PALETTE.waterEdge,
+              color: this.theme.water.edge,
               size: 2,
             });
           }
@@ -248,12 +265,8 @@ export class WorldView {
       this.view.width / 2 - cam.x * cam.zoom + sx,
       this.view.height / 2 - cam.y * cam.zoom + sy,
     );
-    // Parallax: hills drift slower than the world.
-    this.hills.position.set(
-      (cam.x - s.terrain.width / 2) * 0.35,
-      (cam.y - s.terrain.height / 2) * 0.2,
-    );
-    this.stars.position.set(-cam.x * 0.03, 0);
+    this.backdrop.update(cam, this.time, this.reducedMotion);
+    this.ambient.update(dt);
 
     const lerp = (a: number, b: number) => a + (b - a) * alpha;
     for (const u of s.units) {
@@ -505,7 +518,7 @@ export class WorldView {
         vy: Math.sin(a) * sp - r * 2,
         life: 0.5 + Math.random() * 0.5,
         age: 0,
-        color: i % 3 === 0 ? PALETTE.soilEdge : i % 3 === 1 ? 0xffb04f : 0xfff1c9,
+        color: i % 3 === 0 ? this.theme.terrain.soilEdge : i % 3 === 1 ? 0xffb04f : 0xfff1c9,
         size: 1.2 + Math.random() * 2,
       });
     }
@@ -574,44 +587,44 @@ export class WorldView {
   private drawWater(s: MatchState): void {
     const g = this.water;
     g.clear();
+    const { color, edge, wave } = this.theme.water;
     const w = s.terrain.width;
     const top = s.waterLevel;
-    const pts: number[] = [-400, s.terrain.height + 600];
+    const t = this.time;
+    const bottom = s.terrain.height + 2000;
+    // Wave shape per theme: long swell, choppy sea, a still lake, a rippling canal.
+    const a1 = wave === 'choppy' ? 3.4 : wave === 'still' ? 0.7 : wave === 'ripple' ? 1.6 : 2.5;
+    const f1 = wave === 'choppy' ? 0.045 : 0.03;
+    const s1 = wave === 'choppy' ? 3.2 : wave === 'still' ? 0.8 : 2.2;
+    const a2 = wave === 'still' ? 0.4 : 1.5;
+    const pts = this.waterPts;
+    const line = this.waterLine;
+    pts.length = 0;
+    line.length = 0;
+    pts.push(-400, bottom);
     for (let x = -400; x <= w + 400; x += 16) {
-      pts.push(
-        x,
-        top + Math.sin(x * 0.03 + this.time * 2.2) * 2.5 + Math.sin(x * 0.011 - this.time) * 1.5,
-      );
+      const y = top + Math.sin(x * f1 + t * s1) * a1 + Math.sin(x * 0.011 - t) * a2;
+      pts.push(x, y);
+      line.push(x, y);
     }
-    pts.push(w + 400, s.terrain.height + 600);
-    g.poly(pts).fill({ color: PALETTE.water, alpha: 0.88 });
-    const line: number[] = [];
-    for (let i = 2; i < pts.length - 2; i++) line.push(pts[i] as number);
-    g.poly(line, false).stroke({ width: 2, color: PALETTE.waterEdge, alpha: 0.9 });
-  }
-
-  private drawHills(width: number, height: number, water: number): void {
-    const g = this.hills;
-    g.clear();
-    const layer = (base: number, amp: number, freq: number, color: number, phase: number) => {
-      const pts: number[] = [-width, water + 200];
-      for (let x = -width; x <= width * 2; x += 40) {
-        pts.push(
-          x,
-          base -
-            amp * (0.5 + 0.5 * Math.sin(x * freq + phase)) -
-            amp * 0.3 * Math.sin(x * freq * 2.7),
-        );
+    pts.push(w + 400, bottom);
+    g.poly(pts).fill({ color, alpha: 0.88 });
+    g.rect(-400, top + 22, w + 800, bottom - top).fill({
+      color: mix(color, 0x000000, 0.5),
+      alpha: 0.5,
+    });
+    if (wave === 'still') g.poly(line, false).stroke({ width: 7, color: edge, alpha: 0.12 });
+    g.poly(line, false).stroke({ width: 2, color: edge, alpha: 0.9 });
+    if (wave === 'choppy' || wave === 'ripple') {
+      // Glints / neon reflections drifting on the surface.
+      for (let k = 0; k < 24; k++) {
+        const gx =
+          ((k * 211 + t * (wave === 'choppy' ? 18 : 9) * (k % 2 ? 1 : -1)) % (w + 400)) - 200;
+        const gy = top + 7 + ((k * 37) % 30);
+        const len = 6 + ((k * 13) % 14);
+        g.rect(gx < -200 ? gx + w + 400 : gx, gy, len, 1.2);
       }
-      pts.push(width * 2, water + 200);
-      g.poly(pts).fill(color);
-    };
-    layer(height * 0.45, height * 0.25, 0.004, PALETTE.mountainsFar, 1.3);
-    layer(height * 0.6, height * 0.2, 0.0065, PALETTE.mountainsNear, 4.1);
+      g.fill({ color: edge, alpha: 0.28 });
+    }
   }
-}
-
-function mix(a: number, b: number, t: number): number {
-  const ch = (s: number) => Math.round(((a >> s) & 0xff) * (1 - t) + ((b >> s) & 0xff) * t);
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
