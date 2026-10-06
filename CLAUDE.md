@@ -2,6 +2,9 @@
 
 Turn-based artillery game (destructible terrain, bots, hotseat; async online in 1.1), portrait mobile. Plan: `docs/PLAN.md` (Hungarian). Task list / status: `docs/TASKS.md`.
 
+## Getting started (read first)
+- **New session? Read `docs/HANDOFF.md` first**: current state, open branches (`t7.2-paywall` to merge), next steps, the live dashboard update rules and local setup notes.
+
 ## Stack
 Vite + TypeScript (strict) · PixiJS v8 (gameplay canvas) · Preact (DOM UI overlay) · Capacitor (iOS/Android) · Vitest · Playwright.
 
