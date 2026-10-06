@@ -89,6 +89,7 @@ export class WorldView {
   private shots: ShotLine[] = [];
   private time = 0;
   private shake = 0;
+  private target: { x: number; y: number; age: number } | null = null;
   private match: MatchState | null = null;
   private view: Viewport = { width: 1, height: 1 };
 
@@ -277,18 +278,46 @@ export class WorldView {
       const p = prev?.projectiles.get(pr.id);
       const x = fxToFloat(p ? lerp(p.x, pr.x) : pr.x);
       const y = fxToFloat(p ? lerp(p.y, pr.y) : pr.y);
-      this.drawProjectile(pr.weapon, x, y, fxToFloat(pr.vx), fxToFloat(pr.vy));
-      if (Math.random() < 0.8) {
+      this.drawProjectile(
+        pr.weapon,
+        x,
+        y,
+        fxToFloat(pr.vx),
+        fxToFloat(pr.vy),
+        pr.fuse,
+        pr.age,
+        pr.dir,
+      );
+      const trail = !pr.resting && pr.weapon !== 'mine' && pr.weapon !== 'dynamite';
+      if ((trail && Math.random() < 0.8) || (pr.weapon === 'dynamite' && Math.random() < 0.6)) {
+        const fuseSpark = pr.weapon === 'dynamite';
         this.particles.push({
-          x,
-          y,
-          vx: 0,
-          vy: -10,
+          x: fuseSpark ? x + 1 : x,
+          y: fuseSpark ? y - 9 : y,
+          vx: (Math.random() - 0.5) * 30,
+          vy: -10 - Math.random() * 30,
           life: 0.35,
           age: 0,
-          color: 0xffb04f,
+          color: pr.weapon === 'flame' || pr.weapon === 'napalm' ? 0xff5a1f : 0xffb04f,
           size: 1.6,
         });
+      }
+    }
+    for (const c of s.crates) this.drawCrate(c.kind, fxToFloat(c.x), fxToFloat(c.y), c.grounded);
+    if (this.target) {
+      this.target.age += dt;
+      const a = 1 - this.target.age / 1.2;
+      if (a <= 0) this.target = null;
+      else {
+        const { x: tx, y: ty } = this.target;
+        const r = 10 + 4 * Math.sin(this.time * 10);
+        this.projectiles
+          .circle(tx, ty, r)
+          .moveTo(tx - r - 4, ty)
+          .lineTo(tx + r + 4, ty)
+          .moveTo(tx, ty - r - 4)
+          .lineTo(tx, ty + r + 4)
+          .stroke({ width: 1.5, color: PALETTE.danger, alpha: a });
       }
     }
 
@@ -384,11 +413,72 @@ export class WorldView {
     return { root, body, eyes, label, shownHp: 100 };
   }
 
-  private drawProjectile(weapon: WeaponId, x: number, y: number, vx: number, vy: number): void {
+  /** Briefly mark a chosen target point. */
+  markTarget(x: number, y: number): void {
+    this.target = { x, y, age: 0 };
+  }
+
+  private drawCrate(kind: 'health' | 'weapon', x: number, y: number, grounded: boolean): void {
     const g = this.projectiles;
-    if (weapon === 'grenade') {
-      g.circle(x, y, 6).fill({ color: PALETTE.gold, alpha: 0.18 });
-      g.circle(x, y, 3).fill(0x9dff4f).stroke({ width: 1, color: 0xffffff });
+    const color = kind === 'health' ? 0x9dff4f : PALETTE.gold;
+    if (!grounded) {
+      // Parachute.
+      g.arc(x, y - 22, 12, Math.PI, 0).fill({ color: PALETTE.soilEdge, alpha: 0.5 });
+      g.moveTo(x - 12, y - 22)
+        .lineTo(x - 4, y - 10)
+        .moveTo(x + 12, y - 22)
+        .lineTo(x + 4, y - 10);
+      g.stroke({ width: 1, color: PALETTE.text, alpha: 0.6 });
+    }
+    g.roundRect(x - 6, y - 11, 12, 11, 2)
+      .fill(0x120a24)
+      .stroke({ width: 1.5, color });
+    if (kind === 'health')
+      g.rect(x - 1, y - 9, 2, 7)
+        .rect(x - 3.5, y - 6.5, 7, 2)
+        .fill(color);
+    else g.circle(x, y - 5.5, 2.4).fill(color);
+  }
+
+  private drawProjectile(
+    weapon: WeaponId,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    fuse: number,
+    age: number,
+    dir: number,
+  ): void {
+    const g = this.projectiles;
+    if (weapon === 'grenade' || weapon === 'cluster') {
+      const c = weapon === 'grenade' ? 0x9dff4f : 0xff4fd8;
+      g.circle(x, y, 6).fill({ color: c, alpha: 0.18 });
+      g.circle(x, y, 3).fill(c).stroke({ width: 1, color: 0xffffff });
+    } else if (weapon === 'mine') {
+      const armed = age >= 90;
+      const blink =
+        fuse > 0 ? Math.floor(age / 4) % 2 === 0 : armed && Math.floor(age / 30) % 2 === 0;
+      g.roundRect(x - 4, y - 3, 8, 3, 1.5).fill(0x3a4250);
+      g.circle(x, y - 3.5, 1.4).fill(blink ? PALETTE.danger : 0x55606f);
+    } else if (weapon === 'dynamite') {
+      g.roundRect(x - 2, y - 7, 4, 7, 1)
+        .fill(0xff3b5c)
+        .stroke({ width: 0.8, color: 0xffd6de });
+      g.moveTo(x, y - 7)
+        .lineTo(x + 1, y - 9)
+        .stroke({ width: 0.8, color: 0xfff1c9 });
+    } else if (weapon === 'crawler') {
+      const d = dir === 0 ? 1 : dir;
+      const hop = Math.abs(Math.sin(age * 0.4)) * 1.2;
+      g.ellipse(x, y - 3 - hop, 4.5, 3)
+        .fill(0xf2f0ff)
+        .stroke({ width: 1, color: PALETTE.soilEdge });
+      g.circle(x + d * 3.5, y - 4 - hop, 0.9).fill(0x05040f);
+      if (Math.floor(age / 8) % 2 === 0) g.circle(x - d * 3, y - 6 - hop, 1).fill(PALETTE.danger);
+    } else if (weapon === 'bomblet' || weapon === 'flame') {
+      const c = weapon === 'flame' ? 0xff5a1f : 0xff4fd8;
+      g.circle(x, y, weapon === 'flame' ? 3.5 : 2.2).fill({ color: c, alpha: 0.85 });
     } else {
       const len = Math.hypot(vx, vy) || 1;
       const ux = vx / len;

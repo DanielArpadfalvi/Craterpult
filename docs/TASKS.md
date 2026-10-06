@@ -19,7 +19,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 
 ## M3 – Game feel & content
 - [ ] T3.1 Explosions, particles, shake, slow-mo, procedural audio, haptics
-- [ ] T3.2 16 weapons, crates, sudden death
+- [x] T3.2 16 weapons, crates, sudden death
 - [ ] T3.3 Map themes + generator polish
 
 ## M4 – Bots

@@ -1,5 +1,5 @@
 import { UNIT_HIT_RADIUS } from './constants';
-import { fx, isqrt } from './fixed';
+import { fx, isqrt, ONE } from './fixed';
 import { carveCircle } from './terrain';
 import type { MatchState } from './types';
 import { launchUnit, unitCenter } from './units';
@@ -40,5 +40,21 @@ export function explode(
     const vx = Math.trunc((speed * dx) / len);
     const vy = Math.min(Math.trunc((speed * dy) / len), -Math.floor(speed / 2));
     launchUnit(u, vx, vy);
+  }
+  // Loose explosives get tossed; a blast sets off nearby mines.
+  for (const p of s.projectiles) {
+    if (!p.resting) continue;
+    const px = Math.floor(p.x / ONE);
+    const py = Math.floor(p.y / ONE);
+    const dx = px - x;
+    const dy = py - y;
+    const d = isqrt(dx * dx + dy * dy);
+    if (d >= reach) continue;
+    const speed = Math.floor((fx(knockback) * (reach - d)) / reach);
+    const len = Math.max(1, d);
+    p.resting = false;
+    p.vx = Math.trunc((speed * dx) / len);
+    p.vy = Math.min(Math.trunc((speed * dy) / len), -Math.floor(speed / 2));
+    if (p.weapon === 'mine' && (p.fuse < 0 || p.fuse > 20)) p.fuse = 20;
   }
 }

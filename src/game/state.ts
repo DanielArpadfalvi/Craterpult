@@ -11,6 +11,22 @@ export interface TeamHud {
   alive: number;
 }
 
+export interface WeaponInfo {
+  /** Rounds left; -1 = unlimited. */
+  ammo: number;
+  /** Usable right now. */
+  ok: boolean;
+  /** Team turn from which it unlocks. */
+  fromTurn: number;
+  /** The active team has reached `fromTurn`. */
+  unlocked: boolean;
+}
+
+export interface Toast {
+  id: number;
+  text: string;
+}
+
 export interface UiState {
   screen: Screen;
   overlay: Overlay;
@@ -22,7 +38,11 @@ export interface UiState {
   teams: TeamHud[];
   weapon: WeaponId;
   fuse: number;
+  /** Girder tilt in deci-degrees (0, 450, 900, 1350). */
+  girderAngle: number;
   weaponsOpen: boolean;
+  weaponInfo: Partial<Record<WeaponId, WeaponInfo>>;
+  toast: Toast | null;
   canMove: boolean;
   canFire: boolean;
   winner: number | null;
@@ -43,7 +63,10 @@ export const INITIAL_UI: UiState = {
   teams: [],
   weapon: 'bazooka',
   fuse: 3,
+  girderAngle: 0,
   weaponsOpen: false,
+  weaponInfo: {},
+  toast: null,
   canMove: false,
   canFire: false,
   winner: null,

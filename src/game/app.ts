@@ -1,10 +1,11 @@
 import { Application } from 'pixi.js';
 import { GRAVITY, MAX_LAUNCH_SPEED } from '../core/constants';
 import { fxFloor, fxToFloat } from '../core/fixed';
+import { CRATE_HEALTH } from '../core/crates';
 import { activeUnit, canFire, canMove, createMatch, step } from '../core/match';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
-import { WEAPONS } from '../core/weapons';
+import { WEAPON_IDS, WEAPONS } from '../core/weapons';
 import { getLanguage, onLanguageChange, t } from '../i18n';
 import { aimFromDrag, MIN_FIRE_POWER, previewArc, type Aim } from '../input/aim';
 import {
@@ -32,6 +33,9 @@ export interface GameActions {
   selectWeapon(w: WeaponId): void;
   toggleWeapons(open?: boolean): void;
   setFuse(seconds: number): void;
+  cycleGirderAngle(): void;
+  /** Fire a `place` weapon (uses the unit's facing). */
+  use(): void;
   passReady(): void;
   rematch(): void;
   toMenu(): void;
@@ -173,6 +177,16 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       } else if (e.type === 'fired') {
         store.set({ showAimHint: false });
         manualCamUntil = 0;
+      } else if (e.type === 'crateCollected') {
+        toast(
+          e.kind === 'health'
+            ? t('toast.crateHealth', { hp: CRATE_HEALTH })
+            : t('toast.crateWeapon', { weapon: e.weapon ? t(`weapon.${e.weapon}`) : '' }),
+        );
+      } else if (e.type === 'crateDropped') {
+        toast(t('toast.crateDropped'));
+      } else if (e.type === 'waterRise') {
+        toast(t('hud.suddenDeath'));
       }
     }
   }
@@ -200,7 +214,38 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       }),
       canMove: canMove(s) && !!u?.grounded && st.overlay === null,
       canFire: canFire(s, st.weapon) && st.overlay === null,
+      weaponInfo: weaponInfo(s),
     });
+  }
+
+  function weaponInfo(s: MatchState): UiState['weaponInfo'] {
+    const team = s.teams[s.activeTeam];
+    const turns = s.teamTurns[s.activeTeam] ?? 0;
+    const prevInfo = store.get().weaponInfo;
+    const out: UiState['weaponInfo'] = {};
+    let same = true;
+    for (const w of WEAPON_IDS) {
+      const def = WEAPONS[w];
+      const info = {
+        ammo: team?.ammo[w] ?? 0,
+        ok: canFire(s, w) || s.phase !== 'aiming',
+        fromTurn: def.fromTurn,
+        unlocked: turns >= def.fromTurn,
+      };
+      const old = prevInfo[w];
+      if (!old || old.ammo !== info.ammo || old.ok !== info.ok || old.unlocked !== info.unlocked)
+        same = false;
+      out[w] = info;
+    }
+    return same ? prevInfo : out;
+  }
+
+  let toastSeq = 0;
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
+  function toast(text: string): void {
+    store.set({ toast: { id: ++toastSeq, text } });
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => store.set({ toast: null }), 2200);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -229,6 +274,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   const pointers = new Map<number, { x: number; y: number }>();
   let mode: 'none' | 'aim' | 'pan' | 'pinch' = 'none';
+  /** Where the current single-finger gesture started (tap detection for target weapons). */
+  let downAt: { x: number; y: number; moved: number } | null = null;
   let pinchStart = { dist: 1, zoom: 1, wx: 0, wy: 0 };
 
   const local = (e: PointerEvent): { x: number; y: number } => {
@@ -267,8 +314,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       aim = null;
       return;
     }
+    downAt = { x: p.x, y: p.y, moved: 0 };
     const us = activeUnitScreen();
-    if (us && canAimNow() && Math.hypot(p.x - us.x, p.y - us.y) < AIM_GRAB_PX) {
+    const aimKind = WEAPONS[store.get().weapon].aim;
+    const slingshot = aimKind === 'arc' || aimKind === 'direction';
+    if (us && slingshot && canAimNow() && Math.hypot(p.x - us.x, p.y - us.y) < AIM_GRAB_PX) {
       mode = 'aim';
       aim = aimFromDrag(us.x, us.y, p.x, p.y);
     } else {
@@ -281,6 +331,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     if (!old) return;
     const p = local(e);
     pointers.set(e.pointerId, p);
+    if (downAt) downAt.moved = Math.max(downAt.moved, Math.hypot(p.x - downAt.x, p.y - downAt.y));
     if (mode === 'aim') {
       const us = activeUnitScreen();
       if (us) aim = aimFromDrag(us.x, us.y, p.x, p.y);
@@ -318,9 +369,13 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   const release = (e: PointerEvent): void => {
     if (!pointers.delete(e.pointerId)) return;
     if (mode === 'aim' && aim) {
-      if (aim.power >= MIN_FIRE_POWER && canAimNow()) fire(aim);
+      const direction = WEAPONS[store.get().weapon].aim === 'direction';
+      if ((direction ? aim.power >= 20 : aim.power >= MIN_FIRE_POWER) && canAimNow()) fire(aim);
       aim = null;
+    } else if (mode === 'pan' && downAt && downAt.moved < 10 && pointers.size === 0) {
+      tapWorld(downAt.x, downAt.y);
     }
+    if (pointers.size === 0) downAt = null;
     if (pointers.size === 0) mode = 'none';
     else if (mode === 'pinch') mode = 'pan';
   };
@@ -345,6 +400,18 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     pending.push({ t: 'fire', weapon: st.weapon, angle: a.angle, power: a.power, fuse: st.fuse });
   }
 
+  /** A tap on the map fires target weapons at that point. */
+  function tapWorld(sx: number, sy: number): void {
+    const st = store.get();
+    if (WEAPONS[st.weapon].aim !== 'target' || !canAimNow()) return;
+    const w = screenToWorld(cam, viewport(), sx, sy);
+    const tx = Math.round(w.x);
+    // Teleport aims the body center at the tap; the core wants the feet.
+    const ty = Math.round(st.weapon === 'teleport' ? w.y + 5 : w.y);
+    pending.push({ t: 'fire', weapon: st.weapon, tx, ty, angle: st.girderAngle });
+    view.markTarget(tx, ty);
+  }
+
   function drawAimOverlay(): void {
     const s = match;
     const u = s && activeUnit(s);
@@ -355,9 +422,12 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     const c = unitCenter(u);
     const color = teamColor(u.team);
     const weapon = WEAPONS[store.get().weapon];
-    if (weapon.kind === 'hitscan') view.drawSight(c.x, c.y, aim.angle, 160, color);
+    if (weapon.aim === 'direction')
+      view.drawSight(c.x, c.y, aim.angle, weapon.id === 'drill' ? weapon.range : 160, color);
     else {
-      const pts = previewArc(aim, fxToFloat(MAX_LAUNCH_SPEED), fxToFloat(GRAVITY), 30, 3);
+      const speed = (fxToFloat(MAX_LAUNCH_SPEED) * weapon.speedPct) / 100;
+      const gravity = (fxToFloat(GRAVITY) * weapon.gravityPct) / 100;
+      const pts = previewArc(aim, speed, gravity, 30, 3);
       view.drawAim(pts, c.x, c.y, aim.power, color);
     }
   }
@@ -404,6 +474,14 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
     setFuse(seconds) {
       store.set({ fuse: Math.min(5, Math.max(1, Math.round(seconds))) });
+    },
+    cycleGirderAngle() {
+      store.set({ girderAngle: (store.get().girderAngle + 450) % 1800 });
+    },
+    use() {
+      const st = store.get();
+      if (WEAPONS[st.weapon].aim !== 'place' || !canAimNow()) return;
+      pending.push({ t: 'fire', weapon: st.weapon });
     },
     passReady() {
       if (store.get().overlay !== 'pass') return;

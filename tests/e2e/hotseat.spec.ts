@@ -115,6 +115,29 @@ test('hotseat: menu → pass → aim by dragging → shot resolves → next team
   await shot(page, 'weapons');
   await page.getByTestId('weapon-grenade').click();
   await expect(page.getByTestId('fuse')).toBeVisible();
+
+  // Place weapon: dynamite via the Use button.
+  await page.getByTestId('weapon').click();
+  await page.getByTestId('weapon-dynamite').click();
+  await expect(page.getByTestId('use')).toBeEnabled();
+  await page.getByTestId('use').click();
+  await step(page, 2);
+  expect((await api(page))!.phase).toBe('firing');
+  await step(page, 60);
+  await shot(page, 'dynamite');
+  for (let i = 0; i < 40 && (await api(page))!.overlay !== 'pass'; i++) await step(page, 30);
+  await page.getByTestId('pass-go').click();
+
+  // Target weapon: teleport by tapping the map.
+  await page.getByTestId('weapon').click();
+  await page.getByTestId('weapon-teleport').click();
+  await expect(page.getByTestId('target-hint')).toBeVisible();
+  const before = (await api(page))!;
+  const unit = before.units[before.activeUnit]!;
+  await page.mouse.click(195, 250);
+  await step(page, 1);
+  const after = (await api(page))!;
+  expect(after.units[after.activeUnit]!.x).not.toBe(unit.x);
   expect(errors).toEqual([]);
 });
 

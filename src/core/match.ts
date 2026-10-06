@@ -10,14 +10,15 @@ import {
   UNIT_HEIGHT,
   UNIT_HIT_RADIUS,
 } from './constants';
+import { stepCrates, maybeDropCrate } from './crates';
 import { explode } from './explosion';
-import { clamp, fcos, fmul, fsin, fxFloor, normAngle, ONE } from './fixed';
+import { clamp, fcos, fmul, fsin, fx, fxFloor, normAngle, ONE } from './fixed';
 import { DEFAULT_MAP, findSpawns, generateTerrain, type MapOptions } from './mapgen';
-import { stepProjectiles } from './projectiles';
+import { spawnProjectile, stepProjectiles } from './projectiles';
 import { createRng, randInt } from './rng';
-import { isSolid } from './terrain';
+import { carveCircle, fillCircle, isSolid, METAL } from './terrain';
 import type { Command, MatchConfig, MatchState, Team, Unit, WeaponId } from './types';
-import { launchUnit, stepUnit, unitCenter, walk } from './units';
+import { bodyCollides, launchUnit, stepUnit, unitCenter, walk } from './units';
 import { DEFAULT_FUSE_SECONDS, WEAPON_IDS, WEAPONS } from './weapons';
 
 export interface TeamSetup {
@@ -99,10 +100,13 @@ export function createMatch(setup: MatchSetup): MatchState {
     units,
     projectiles: [],
     nextProjectileId: 1,
+    crates: [],
+    nextCrateId: 1,
     phase: 'settling',
     activeTeam: setup.teams.length - 1,
     activeUnit: -1,
     turnNumber: 0,
+    teamTurns: setup.teams.map(() => 0),
     turnTicksLeft: 0,
     phaseTicks: 0,
     shotsLeft: 0,
@@ -139,7 +143,13 @@ export function canFire(s: MatchState, weapon: WeaponId): boolean {
   const u = activeUnit(s);
   if (!u || !u.alive || s.phase !== 'aiming') return false;
   if (s.shotsLeft > 0) return weapon === s.turnWeapon;
+  if ((s.teamTurns[s.activeTeam] ?? 0) < WEAPONS[weapon].fromTurn) return false;
   return (s.teams[s.activeTeam]?.ammo[weapon] ?? 0) !== 0;
+}
+
+/** Explosives still doing something (armed-but-idle mines do not hold up the turn). */
+export function projectilesBusy(s: MatchState): boolean {
+  return s.projectiles.some((p) => !(p.weapon === 'mine' && p.resting && p.fuse < 0));
 }
 
 /** Advance the match by one tick, applying this tick's commands first. */
@@ -156,6 +166,7 @@ export function step(s: MatchState, commands: readonly Command[] = []): void {
   const hpBefore = u ? u.hp : 0;
   for (const unit of s.units) stepUnit(s.terrain, unit, s.waterLevel, s.events);
   stepProjectiles(s);
+  stepCrates(s);
 
   switch (s.phase) {
     case 'aiming':
@@ -164,7 +175,7 @@ export function step(s: MatchState, commands: readonly Command[] = []): void {
       if (!u || !u.alive || u.hp < hpBefore || s.turnTicksLeft <= 0) enterPhase(s, 'settling');
       break;
     case 'firing':
-      if (s.projectiles.length === 0 && s.phaseTicks >= 2) {
+      if (!projectilesBusy(s) && s.phaseTicks >= 2) {
         if (s.shotsLeft > 0 && u && u.alive && u.hp > 0 && s.turnTicksLeft > 0) {
           enterPhase(s, 'aiming');
         } else if (u && u.alive && u.hp > 0) {
@@ -192,7 +203,7 @@ function enterPhase(s: MatchState, phase: MatchState['phase']): void {
 }
 
 function atRest(s: MatchState): boolean {
-  return s.projectiles.length === 0 && s.units.every((u) => !u.alive || u.grounded);
+  return !projectilesBusy(s) && s.units.every((u) => !u.alive || u.grounded);
 }
 
 function applyCommand(s: MatchState, c: Command): void {
@@ -216,7 +227,7 @@ function applyCommand(s: MatchState, c: Command): void {
       }
       break;
     case 'fire':
-      fire(s, u, c.weapon, c.angle, c.power, c.fuse);
+      fire(s, u, c);
       break;
     case 'skip':
       if (s.phase === 'aiming' || s.phase === 'retreat') enterPhase(s, 'settling');
@@ -224,21 +235,25 @@ function applyCommand(s: MatchState, c: Command): void {
   }
 }
 
-function fire(
-  s: MatchState,
-  u: Unit,
-  weapon: WeaponId,
-  angle: number,
-  power: number,
-  fuseSeconds = DEFAULT_FUSE_SECONDS,
-): void {
+type FireCommand = Extract<Command, { t: 'fire' }>;
+
+function fire(s: MatchState, u: Unit, c: FireCommand): void {
+  const weapon = c.weapon;
   if (!canFire(s, weapon)) return;
   const def = WEAPONS[weapon];
   const team = s.teams[s.activeTeam] as Team;
-  const a = normAngle(Math.trunc(angle));
+  const a = normAngle(Math.trunc(c.angle ?? (u.facing === 1 ? 0 : 1800)));
   const cos = fcos(a);
   const sin = fsin(a);
-  u.facing = cos < 0 ? -1 : 1;
+  const center = unitCenter(u);
+  const tx = Math.trunc(c.tx ?? center.x);
+  const ty = Math.trunc(c.ty ?? center.y);
+  if (def.aim === 'arc' || def.aim === 'direction') u.facing = cos < 0 ? -1 : 1;
+
+  // Validate placements before spending ammo.
+  if (weapon === 'teleport' && !teleportOk(s, tx, ty)) return;
+  if (weapon === 'girder' && !girderOk(s, tx, ty, a, def.range)) return;
+
   if (s.shotsLeft === 0) {
     if (team.ammo[weapon] > 0) team.ammo[weapon]--;
     s.shotsLeft = def.shots;
@@ -247,28 +262,183 @@ function fire(
   s.shotsLeft--;
   s.moveDir = 0;
   s.events.push({ type: 'fired', unit: u.id, weapon });
-  const c = unitCenter(u);
-  if (def.kind === 'hitscan') {
-    hitscan(s, u, c.x, c.y, cos, sin, def.range, def.blastRadius, def.damage, def.knockback);
-  } else {
-    const speed = fmul(
-      MAX_LAUNCH_SPEED,
-      Math.floor((clamp(Math.trunc(power), 5, 100) * ONE) / 100),
-    );
-    const muzzle = UNIT_HIT_RADIUS + 3;
-    s.projectiles.push({
-      id: s.nextProjectileId++,
-      weapon,
-      x: c.x * ONE + muzzle * cos,
-      y: c.y * ONE - muzzle * sin,
-      vx: fmul(speed, cos),
-      vy: -fmul(speed, sin),
-      fuse: def.fuse ? clamp(Math.trunc(fuseSeconds), 1, 5) * 60 : -1,
-      owner: u.id,
-      age: 0,
-    });
+  const fuseTicks = def.fuse
+    ? clamp(Math.trunc(c.fuse ?? DEFAULT_FUSE_SECONDS), 1, 5) * 60
+    : def.fixedFuse;
+
+  switch (weapon) {
+    case 'shotgun':
+      hitscan(
+        s,
+        u,
+        center.x,
+        center.y,
+        cos,
+        sin,
+        def.range,
+        def.blastRadius,
+        def.damage,
+        def.knockback,
+      );
+      break;
+    case 'drill':
+      for (let d = 4; d <= def.range; d += 5) {
+        const rect = carveCircle(
+          s.terrain,
+          center.x + fxFloor(d * cos),
+          center.y - fxFloor(d * sin),
+          def.blastRadius,
+        );
+        if (rect) s.events.push({ type: 'carved', rect });
+      }
+      break;
+    case 'punch':
+      punch(s, u, def.range, def.damage, def.knockback);
+      break;
+    case 'quake':
+      s.events.push({ type: 'quake' });
+      for (const o of s.units) {
+        if (!o.alive) continue;
+        o.hp -= def.damage;
+        o.pendingDamage += def.damage;
+        s.events.push({ type: 'damage', unit: o.id, amount: def.damage });
+        launchUnit(o, (randInt(s.rng, 5) - 2) * fx(1), -fx(def.knockback));
+      }
+      break;
+    case 'teleport':
+      u.x = tx * ONE + (ONE >> 1);
+      u.y = ty * ONE;
+      u.vx = 0;
+      u.vy = 0;
+      u.grounded = false;
+      s.events.push({ type: 'teleported', unit: u.id });
+      break;
+    case 'girder':
+      placeGirder(s, tx, ty, a, def.range);
+      break;
+    case 'airstrike':
+      for (let i = 0; i < def.fragments; i++) {
+        const mx = tx + (i - (def.fragments - 1) / 2) * 26;
+        spawnProjectile(s, 'missile', mx * ONE, (-40 - i * 6) * ONE, s.wind * fx(0.1), fx(4), u.id);
+      }
+      break;
+    case 'homing':
+      spawnProjectile(
+        s,
+        weapon,
+        center.x * ONE,
+        (center.y - 10) * ONE,
+        u.facing * fx(1.5),
+        -fx(5),
+        u.id,
+        -1,
+        {
+          tx,
+          ty,
+        },
+      );
+      break;
+    case 'dynamite':
+    case 'mine':
+    case 'crawler':
+      spawnProjectile(
+        s,
+        weapon,
+        (center.x + u.facing * 8) * ONE,
+        (center.y - 2) * ONE,
+        u.facing * fx(0.8),
+        -fx(1),
+        u.id,
+        fuseTicks,
+        { dir: u.facing },
+      );
+      break;
+    default: {
+      const power = clamp(Math.trunc(c.power ?? 50), 5, 100);
+      const speed = Math.trunc(
+        (fmul(MAX_LAUNCH_SPEED, Math.floor((power * ONE) / 100)) * def.speedPct) / 100,
+      );
+      const muzzle = UNIT_HIT_RADIUS + 3;
+      spawnProjectile(
+        s,
+        weapon,
+        center.x * ONE + muzzle * cos,
+        center.y * ONE - muzzle * sin,
+        fmul(speed, cos),
+        -fmul(speed, sin),
+        u.id,
+        fuseTicks,
+      );
+    }
   }
-  enterPhase(s, 'firing');
+  enterPhase(s, def.noRetreat ? 'settling' : 'firing');
+}
+
+function teleportOk(s: MatchState, x: number, y: number): boolean {
+  return (
+    x > 4 &&
+    x < s.terrain.width - 4 &&
+    y > 12 &&
+    y < s.waterLevel - 12 &&
+    !bodyCollides(s.terrain, x, y)
+  );
+}
+
+/** Girder: a metal beam of `length` px centered on (x, y), snapped to 45° steps. */
+function girderPoints(
+  x: number,
+  y: number,
+  angle: number,
+  length: number,
+): { x: number; y: number }[] {
+  const snapped = (Math.round(angle / 450) * 450) % 1800;
+  const cos = fcos(snapped);
+  const sin = fsin(snapped);
+  const pts: { x: number; y: number }[] = [];
+  for (let d = -(length >> 1); d <= length >> 1; d += 2) {
+    pts.push({ x: x + fxFloor(d * cos), y: y - fxFloor(d * sin) });
+  }
+  return pts;
+}
+
+function girderOk(s: MatchState, x: number, y: number, angle: number, length: number): boolean {
+  if (y < 0 || y >= s.waterLevel || x < 0 || x >= s.terrain.width) return false;
+  return girderPoints(x, y, angle, length).every((p) =>
+    s.units.every((o) => {
+      if (!o.alive) return true;
+      const c = unitCenter(o);
+      return (c.x - p.x) * (c.x - p.x) + (c.y - p.y) * (c.y - p.y) > 12 * 12;
+    }),
+  );
+}
+
+function placeGirder(s: MatchState, x: number, y: number, angle: number, length: number): void {
+  const pts = girderPoints(x, y, angle, length);
+  for (const p of pts) fillCircle(s.terrain, p.x, p.y, 3, METAL);
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const rect = {
+    x: Math.min(...xs) - 4,
+    y: Math.min(...ys) - 4,
+    w: Math.max(...xs) - Math.min(...xs) + 9,
+    h: Math.max(...ys) - Math.min(...ys) + 9,
+  };
+  s.events.push({ type: 'girder', rect }, { type: 'carved', rect });
+}
+
+/** Melee: hits units just in front of the attacker and launches them. */
+function punch(s: MatchState, u: Unit, range: number, damage: number, knockback: number): void {
+  const c = unitCenter(u);
+  for (const o of s.units) {
+    if (!o.alive || o.id === u.id) continue;
+    const oc = unitCenter(o);
+    const ahead = (oc.x - c.x) * u.facing;
+    if (ahead < 0 || ahead > range + UNIT_HIT_RADIUS || Math.abs(oc.y - c.y) > 14) continue;
+    o.hp -= damage;
+    o.pendingDamage += damage;
+    s.events.push({ type: 'damage', unit: o.id, amount: damage });
+    launchUnit(o, u.facing * fmul(fx(knockback), fx(0.6)), -fmul(fx(knockback), fx(0.8)));
+  }
 }
 
 /** Instant ray from (x, y): explodes at the first terrain pixel or unit (other than the shooter). */
@@ -361,6 +531,12 @@ function startNextTurn(s: MatchState): void {
   s.activeTeam = team;
   s.activeUnit = pick ? pick.id : -1;
   s.turnNumber++;
+  s.teamTurns[team] = (s.teamTurns[team] ?? 0) + 1;
+  if (s.config.suddenDeathTurn > 0 && s.turnNumber >= s.config.suddenDeathTurn) {
+    s.waterLevel = Math.max(40, s.waterLevel - s.config.waterRise);
+    s.events.push({ type: 'waterRise', level: s.waterLevel });
+  }
+  if (s.turnNumber > s.teams.length) maybeDropCrate(s);
   s.turnTicksLeft = s.config.turnTicks;
   s.shotsLeft = 0;
   s.turnWeapon = null;

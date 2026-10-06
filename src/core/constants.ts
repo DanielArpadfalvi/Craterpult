@@ -31,4 +31,7 @@ export const DEFAULT_CONFIG = {
   turnTicks: 45 * 60,
   retreatTicks: 3 * 60,
   unitHp: 100,
+  crateChance: 40,
+  suddenDeathTurn: 30,
+  waterRise: 14,
 };
