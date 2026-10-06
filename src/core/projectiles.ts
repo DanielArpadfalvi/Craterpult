@@ -1,4 +1,4 @@
-import { GRAVITY, UNIT_HIT_RADIUS, WIND_ACCEL, WORLD_MARGIN } from './constants';
+import { scaledGravity, UNIT_HIT_RADIUS, WIND_ACCEL, WORLD_MARGIN } from './constants';
 import { explode } from './explosion';
 import { flen, fmul, fx, fxFloor, ONE } from './fixed';
 import { isSolid, surfaceNormal } from './terrain';
@@ -90,9 +90,10 @@ function stepProjectile(s: MatchState, p: Projectile): boolean {
   }
 
   if (!p.resting) {
-    p.vy += Math.trunc((GRAVITY * def.gravityPct) / 100);
-    if (def.wind) p.vx += s.wind * WIND_ACCEL;
-    if (def.flight === 'homing' && p.age > HOMING_DELAY_TICKS) steer(p);
+    const g = scaledGravity(s.config.gravityPct);
+    p.vy += Math.trunc((g * def.gravityPct) / 100);
+    if (def.wind) p.vx += Math.trunc((s.wind * WIND_ACCEL * s.config.windScale) / 100);
+    if (def.flight === 'homing' && p.age > HOMING_DELAY_TICKS) steer(p, g);
     const steps = Math.max(1, Math.ceil(Math.max(Math.abs(p.vx), Math.abs(p.vy)) / ONE));
     const sx = Math.trunc(p.vx / steps);
     const sy = Math.trunc(p.vy / steps);
@@ -186,12 +187,12 @@ function settle(p: Projectile): void {
 }
 
 /** Accelerate toward the target and cap the speed. */
-function steer(p: Projectile): void {
+function steer(p: Projectile, gravity: number): void {
   const dx = p.tx * ONE - p.x;
   const dy = p.ty * ONE - p.y;
   const d = Math.max(1, flen(Math.trunc(dx / 256), Math.trunc(dy / 256)) * 256);
   p.vx += Math.trunc((HOMING_ACCEL * dx) / d);
-  p.vy += Math.trunc((HOMING_ACCEL * dy) / d) - GRAVITY;
+  p.vy += Math.trunc((HOMING_ACCEL * dy) / d) - gravity;
   const sp = flen(p.vx, p.vy);
   if (sp > HOMING_MAX_SPEED) {
     p.vx = Math.trunc((p.vx * HOMING_MAX_SPEED) / sp);

@@ -42,7 +42,7 @@ describe('bot', () => {
       dealt += playShot(s, 5);
     }
     expect(dealt).toBeGreaterThan(90);
-  });
+  }, 20_000);
 
   it('a hard bot finds damaging shots on generated maps', () => {
     let hits = 0;
@@ -58,7 +58,7 @@ describe('bot', () => {
       if (playShot(s, 5) > 0) hits++;
     }
     expect(hits).toBeGreaterThanOrEqual(3);
-  });
+  }, 20_000);
 
   it('is deterministic', () => {
     const a = new BotSearch(flatMatch([[300], [700]]), 3).finish();

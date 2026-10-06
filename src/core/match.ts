@@ -5,6 +5,7 @@ import {
   JUMP_VX,
   JUMP_VY,
   MAX_LAUNCH_SPEED,
+  scaledGravity,
   SETTLE_MAX_TICKS,
   SETTLE_MIN_TICKS,
   UNIT_HEIGHT,
@@ -23,8 +24,15 @@ import { DEFAULT_FUSE_SECONDS, WEAPON_IDS, WEAPONS } from './weapons';
 
 export interface TeamSetup {
   name: string;
+  /** Unit names; the length is the unit count. */
   units: string[];
   bot?: boolean;
+  /** Starting HP of this team's units (default: `config.unitHp`). */
+  hp?: number;
+  /** Restrict the arsenal: every weapon not listed starts with 0 rounds. */
+  only?: WeaponId[];
+  /** Per-weapon starting rounds (-1 = unlimited), applied after `only`. */
+  ammo?: Partial<Record<WeaponId, number>>;
 }
 
 export interface MatchSetup {
@@ -32,6 +40,20 @@ export interface MatchSetup {
   teams: TeamSetup[];
   config?: Partial<MatchConfig>;
   map?: MapOptions;
+  /** Wind of the first turn (−10…10) instead of a random one. */
+  startWind?: number;
+}
+
+/** Starting ammo of a team: weapon defaults, then `only`, then explicit overrides. */
+export function teamAmmo(t: TeamSetup): Record<WeaponId, number> {
+  const ammo = Object.fromEntries(
+    WEAPON_IDS.map((w) => [w, t.only && !t.only.includes(w) ? 0 : WEAPONS[w].ammo]),
+  ) as Record<WeaponId, number>;
+  for (const w of WEAPON_IDS) {
+    const v = t.ammo?.[w];
+    if (v !== undefined) ammo[w] = Math.max(-1, Math.trunc(v));
+  }
+  return ammo;
 }
 
 export function createMatch(setup: MatchSetup): MatchState {
@@ -63,6 +85,7 @@ export function createMatch(setup: MatchSetup): MatchState {
   }
   order.forEach((o, i) => {
     const sp = spawns[slots[i] as number] as { x: number; y: number };
+    const hp = Math.max(1, Math.trunc(setup.teams[o.team]?.hp ?? config.unitHp));
     units.push({
       id: i,
       team: o.team,
@@ -72,7 +95,8 @@ export function createMatch(setup: MatchSetup): MatchState {
       vx: 0,
       vy: 0,
       grounded: false,
-      hp: config.unitHp,
+      hp,
+      maxHp: hp,
       alive: true,
       facing: sp.x < map.width / 2 ? 1 : -1,
       pendingDamage: 0,
@@ -81,12 +105,10 @@ export function createMatch(setup: MatchSetup): MatchState {
   const teams: Team[] = setup.teams.map((t, i) => ({
     id: i,
     name: t.name,
-    ammo: Object.fromEntries(WEAPON_IDS.map((w) => [w, WEAPONS[w].ammo])) as Record<
-      WeaponId,
-      number
-    >,
+    ammo: teamAmmo(t),
     nextUnit: 0,
     bot: !!t.bot,
+    used: [],
   }));
   const s: MatchState = {
     seed: setup.seed,
@@ -116,12 +138,18 @@ export function createMatch(setup: MatchSetup): MatchState {
     events: [],
   };
   // Drop everyone onto the ground before the first turn.
+  const g = scaledGravity(config.gravityPct);
   for (let i = 0; i < 240 && s.units.some((u) => u.alive && !u.grounded); i++) {
-    for (const u of s.units) stepUnit(s.terrain, u, s.waterLevel, s.events);
+    for (const u of s.units) stepUnit(s.terrain, u, s.waterLevel, s.events, g);
   }
   for (const u of s.units) u.pendingDamage = 0;
   s.events = [];
   startNextTurn(s);
+  if (setup.startWind !== undefined && config.windEnabled) {
+    s.wind = clamp(Math.trunc(setup.startWind), -10, 10);
+    const ts = s.events.find((e) => e.type === 'turnStart');
+    if (ts && ts.type === 'turnStart') ts.wind = s.wind;
+  }
   return s;
 }
 
@@ -164,7 +192,8 @@ export function step(s: MatchState, commands: readonly Command[] = []): void {
   if (u && s.moveDir !== 0 && canMove(s) && u.grounded) walk(s.terrain, u, s.moveDir);
 
   const hpBefore = u ? u.hp : 0;
-  for (const unit of s.units) stepUnit(s.terrain, unit, s.waterLevel, s.events);
+  const g = scaledGravity(s.config.gravityPct);
+  for (const unit of s.units) stepUnit(s.terrain, unit, s.waterLevel, s.events, g);
   stepProjectiles(s);
   stepCrates(s);
 
@@ -258,6 +287,8 @@ function fire(s: MatchState, u: Unit, c: FireCommand): void {
     if (team.ammo[weapon] > 0) team.ammo[weapon]--;
     s.shotsLeft = def.shots;
     s.turnWeapon = weapon;
+    // Replace (never mutate) so shallow clones (bot lookahead) cannot leak into the real match.
+    if (!team.used.includes(weapon)) team.used = [...team.used, weapon];
   }
   s.shotsLeft--;
   s.moveDir = 0;
@@ -500,8 +531,10 @@ function finishTurn(s: MatchState): void {
     u.pendingDamage = 0;
   }
   const alive = s.teams.filter((t) => teamAlive(s, t.id));
-  if (alive.length <= 1) {
-    s.winner = alive[0]?.id ?? -1;
+  const focus = s.config.endOnTeamLoss;
+  const focusLost = focus >= 0 && !alive.some((t) => t.id === focus);
+  if (alive.length <= 1 || focusLost) {
+    s.winner = alive.length === 1 ? (alive[0]?.id ?? -1) : -1;
     s.phase = 'over';
     s.events.push({ type: 'gameOver', winner: s.winner });
     return;
@@ -541,7 +574,8 @@ function startNextTurn(s: MatchState): void {
   s.shotsLeft = 0;
   s.turnWeapon = null;
   s.moveDir = 0;
-  s.wind = randInt(s.rng, 21) - 10;
+  const wind = randInt(s.rng, 21) - 10;
+  s.wind = s.config.windEnabled ? wind : 0;
   enterPhase(s, 'aiming');
   s.events.push({ type: 'turnStart', team, unit: s.activeUnit, wind: s.wind });
 }

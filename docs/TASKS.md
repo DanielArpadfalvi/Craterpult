@@ -26,8 +26,8 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] T4.1 Simulation-based AI, 5 difficulties (time-sliced on the main thread instead of a Worker)
 
 ## M5 – Modes
-- [ ] T5.1 Campaign (30 levels, objectives, stars)
-- [ ] T5.2 Quick match vs bots, Daily challenge
+- [x] T5.1 Campaign (30 levels, objectives, stars) – 3×10 missions (bot 1→5, map styles, arsenals, physics), 1–3 stars, chapter unlocks, versioned save
+- [x] T5.2 Quick match vs bots, Daily challenge – team size + map style chips; date-seeded daily with modifier, official attempt, score, best + streak
 
 ## M6 – Meta & UI
 - [ ] T6.1 Menu, settings, pause, save (versioned), stats, team customization, EN/HU

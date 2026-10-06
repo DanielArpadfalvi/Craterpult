@@ -4,7 +4,27 @@ import { fxFloor, fxToFloat } from '../core/fixed';
 import { AudioEngine } from '../audio/engine';
 import { BotSearch, type Difficulty } from '../core/ai/bot';
 import { CRATE_HEALTH } from '../core/crates';
-import { activeUnit, canFire, canMove, createMatch, step } from '../core/match';
+import {
+  chapterMissions,
+  missionById,
+  missionSetup,
+  missionStats,
+  nextMission,
+  ruleMet,
+  scoreMission,
+  type Mission,
+} from '../core/campaign';
+import {
+  DAILY_BOT,
+  DAILY_TURN_COST,
+  DAILY_WIN_BONUS,
+  dailyScore,
+  dailySeed,
+  dailySetup,
+} from '../core/daily';
+import { activeUnit, canFire, canMove, createMatch, step, type MatchSetup } from '../core/match';
+import { MAP_STYLES, type MapStyle } from '../core/mapgen';
+import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
 import { WEAPON_IDS, WEAPONS } from '../core/weapons';
@@ -23,14 +43,27 @@ import {
 import { teamColor } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
 import { createWebHaptics } from '../platform/haptics';
+import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
+import { chapterUnlocked, missionUnlocked, recordMission } from './progress';
+import { getSave, loadSave, onSaveChange, updateSave } from './save';
 import { GameLoop } from './loop';
-import { INITIAL_UI, type UiState } from './state';
+import { INITIAL_UI, type GameMode, type UiState } from './state';
 import { createStore, type Store } from './store';
 
 export interface GameActions {
   startHotseat(seed?: string): void;
   startBotMatch(difficulty: Difficulty, seed?: string): void;
+  setTeamSize(n: number): void;
+  setMapStyle(style: MapStyle | 'random'): void;
+  openCampaign(): void;
+  selectChapter(chapter: number): void;
+  openMission(id: string | null): void;
+  startMission(id: string): void;
+  nextMission(): void;
+  /** Leave a campaign match for the mission grid. */
+  toMissions(): void;
+  startDaily(): void;
   move(dir: -1 | 0 | 1): void;
   jump(): void;
   backflip(): void;
@@ -79,7 +112,20 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       return false;
     }
   };
-  const store = createStore<UiState>({ ...INITIAL_UI, lang: getLanguage(), muted: readMuted() });
+  const testMode = new URLSearchParams(location.search).has('test');
+  /** Today's date key; `?test&today=YYYY-MM-DD` pins it for deterministic e2e runs. */
+  const today = (): string => {
+    const forced = new URLSearchParams(location.search).get('today');
+    return testMode && forced && /^\d{4}-\d{2}-\d{2}$/.test(forced) ? forced : dateKey(new Date());
+  };
+  const store = createStore<UiState>({
+    ...INITIAL_UI,
+    lang: getLanguage(),
+    muted: readMuted(),
+    save: loadSave(),
+    today: today(),
+  });
+  onSaveChange((save) => store.set({ save }));
   const audio = new AudioEngine();
   audio.setMuted(store.get().muted);
   const haptics = createWebHaptics();
@@ -146,32 +192,56 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   // ---------------------------------------------------------------------------------------------
 
   interface MatchOptions {
-    seed: string;
-    /** Bot difficulty of team 1, or null for pass & play. */
+    mode: GameMode;
+    setup: MatchSetup;
+    /** Difficulty of the bot teams, or null for pass & play. */
     bot: Difficulty | null;
+    missionId?: string;
+    /** Daily challenge: the date played and whether this is the official attempt. */
+    daily?: { day: string; official: boolean };
   }
-  let lastOptions: MatchOptions = { seed: 'craterpult', bot: null };
+  let lastOptions: MatchOptions | null = null;
 
   /** Is the team played by someone holding the phone? */
   const isHuman = (team: number): boolean => !match?.teams[team]?.bot;
   /** Pass & play needs the hand-over screen; against a bot it would only get in the way. */
   const needsPass = (): boolean => !!match && match.teams.filter((tm) => !tm.bot).length > 1;
 
+  /** Two-team setup for pass & play and quick matches. */
+  function versusSetup(
+    seed: string,
+    bot: Difficulty | null,
+    size: number,
+    style: MapStyle,
+  ): MatchSetup {
+    return {
+      seed,
+      map: { width: 1600, height: 900, waterLevel: 860, style },
+      teams: [0, 1].map((i) => ({
+        name: i === 1 && bot ? t(`bot.name.${bot}` as 'bot.name.1') : t(`team.${i}` as 'team.0'),
+        units: Array.from({ length: size }, (_, k) => `${String.fromCharCode(65 + k)}${i + 1}`),
+        bot: i === 1 && bot !== null,
+      })),
+    };
+  }
+
+  /** Display names of a mission's teams: you, then the bot crews. */
+  function missionNames(m: Mission): string[] {
+    return [
+      t('team.player'),
+      ...m.enemies.map((_, i) =>
+        m.enemies.length === 1
+          ? t(`bot.name.${m.bot}` as 'bot.name.1')
+          : t(`team.${i + 1}` as 'team.1'),
+      ),
+    ];
+  }
+
   function startMatch(opts: MatchOptions): void {
     lastOptions = opts;
     bot = null;
-    shotsFired = [0, 0];
-    match = createMatch({
-      seed: opts.seed,
-      teams: [0, 1].map((i) => ({
-        name:
-          i === 1 && opts.bot
-            ? t(`bot.name.${opts.bot}` as 'bot.name.1')
-            : t(`team.${i}` as 'team.0'),
-        units: ['A', 'B', 'C'].map((c) => `${c}${i + 1}`),
-        bot: i === 1 && opts.bot !== null,
-      })),
-    });
+    shotsFired = opts.setup.teams.map(() => 0);
+    match = createMatch(opts.setup);
     prev = null;
     pending = [];
     aim = null;
@@ -188,6 +258,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     );
     store.set({
       screen: 'playing',
+      mode: opts.mode,
+      missionId: opts.missionId ?? null,
+      missionIntro: null,
+      result: null,
       overlay: needsPass() ? 'pass' : null,
       winner: null,
       weaponsOpen: false,
@@ -237,7 +311,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     }
     try {
       bot = {
-        search: new BotSearch(s, lastOptions.bot ?? 3),
+        search: new BotSearch(s, lastOptions?.bot ?? 3),
         started: performance.now(),
         chosen: null,
         fireAt: 0,
@@ -306,7 +380,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
         }
         publishHud();
       } else if (e.type === 'gameOver') {
-        store.set({ overlay: 'over', winner: e.winner });
+        const result = recordResult(s);
+        store.set({ overlay: result ? 'result' : 'over', winner: e.winner, result });
         publishHud();
       } else if (e.type === 'fired') {
         shotsFired[s.activeTeam] = (shotsFired[s.activeTeam] ?? 0) + 1;
@@ -326,6 +401,53 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     }
   }
 
+  /** Persist a finished campaign / daily match and describe it for the result screen. */
+  function recordResult(s: MatchState): UiState['result'] {
+    const opts = lastOptions;
+    if (!opts) return null;
+    if (opts.mode === 'campaign' && opts.missionId) {
+      const mission = missionById(opts.missionId);
+      if (!mission) return null;
+      const stars = scoreMission(s, mission);
+      const before = getSave();
+      const prevStars = before.campaign.stars[mission.id] ?? 0;
+      const wasOpen = [1, 2, 3].map((c) => chapterUnlocked(before, c));
+      const after = updateSave((d) => recordMission(d, mission.id, stars));
+      const unlockedChapter =
+        [1, 2, 3].find((c, i) => !wasOpen[i] && chapterUnlocked(after, c)) ?? null;
+      const next = nextMission(mission.id);
+      return {
+        kind: 'campaign',
+        missionId: mission.id,
+        won: stars > 0,
+        stars,
+        prevStars,
+        unlockedChapter,
+        nextId: next && missionUnlocked(after, next) ? next.id : null,
+        rulesMet: mission.stars.map((rule) => stars > 0 && ruleMet(rule, missionStats(s))),
+      };
+    }
+    if (opts.mode === 'daily' && opts.daily) {
+      const { day, official } = opts.daily;
+      const score = dailyScore(s);
+      const st = missionStats(s);
+      const after = updateSave((d) => finishDaily(d, day, score, st.won, official));
+      return {
+        kind: 'daily',
+        won: st.won,
+        score,
+        official,
+        hpLeft: st.hpLeft,
+        turns: st.turns,
+        winBonus: st.won ? DAILY_WIN_BONUS : 0,
+        turnCost: st.turns * DAILY_TURN_COST,
+        best: after.daily.best,
+        streak: currentStreak(after, day),
+      };
+    }
+    return null;
+  }
+
   function publishHud(): void {
     const s = match;
     if (!s) return;
@@ -343,7 +465,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           id: tm.id,
           name: tm.name,
           hp: members.reduce((n, x) => n + (x.alive ? Math.max(0, x.hp) : 0), 0),
-          maxHp: members.length * s.config.unitHp,
+          maxHp: members.reduce((n, x) => n + x.maxHp, 0),
           alive: members.filter((x) => x.alive && x.hp > 0).length,
         };
       }),
@@ -565,7 +687,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       view.drawSight(c.x, c.y, shown.angle, weapon.id === 'drill' ? weapon.range : 160, color);
     else {
       const speed = (fxToFloat(MAX_LAUNCH_SPEED) * weapon.speedPct) / 100;
-      const gravity = (fxToFloat(GRAVITY) * weapon.gravityPct) / 100;
+      const gravity =
+        (((fxToFloat(GRAVITY) * weapon.gravityPct) / 100) * s.config.gravityPct) / 100;
       const pts = previewArc(shown, speed, gravity, 30, 3);
       view.drawAim(pts, c.x, c.y, shown.power, color);
     }
@@ -590,11 +713,77 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   const actions: GameActions = {
     startHotseat(seed) {
-      startMatch({ seed: seed ?? `hs-${Date.now().toString(36)}`, bot: null });
+      const sd = seed ?? `hs-${Date.now().toString(36)}`;
+      startMatch({ mode: 'hotseat', setup: versusSetup(sd, null, 3, 'hills'), bot: null });
     },
     startBotMatch(difficulty, seed) {
       store.set({ difficulty });
-      startMatch({ seed: seed ?? `bot-${Date.now().toString(36)}`, bot: difficulty });
+      const st = store.get();
+      const sd = seed ?? `bot-${Date.now().toString(36)}`;
+      const style =
+        st.mapStyle === 'random' ? pick(createRng(`style:${sd}`), MAP_STYLES) : st.mapStyle;
+      startMatch({
+        mode: 'quick',
+        setup: versusSetup(sd, difficulty, st.teamSize, style),
+        bot: difficulty,
+      });
+    },
+    setTeamSize(n) {
+      store.set({ teamSize: Math.min(4, Math.max(2, Math.round(n))) });
+    },
+    setMapStyle(style) {
+      store.set({ mapStyle: style });
+    },
+    openCampaign() {
+      const save = getSave();
+      // Open on the newest unlocked chapter.
+      const chapter = [3, 2, 1].find((c) => chapterUnlocked(save, c)) ?? 1;
+      store.set({ screen: 'campaign', chapter, missionIntro: null, overlay: null, result: null });
+    },
+    selectChapter(chapter) {
+      store.set({ chapter, missionIntro: null });
+    },
+    openMission(id) {
+      const m = id ? missionById(id) : undefined;
+      if (id && (!m || !missionUnlocked(getSave(), m))) return;
+      store.set({ missionIntro: m ? m.id : null });
+    },
+    startMission(id) {
+      const m = missionById(id);
+      if (!m || !missionUnlocked(getSave(), m)) return;
+      store.set({ chapter: m.chapter });
+      startMatch({
+        mode: 'campaign',
+        setup: missionSetup(m, missionNames(m)),
+        bot: m.bot,
+        missionId: m.id,
+      });
+    },
+    nextMission() {
+      const r = store.get().result;
+      if (r?.kind === 'campaign' && r.nextId) {
+        const m = missionById(r.nextId);
+        actions.toMissions();
+        if (m) store.set({ chapter: m.chapter, missionIntro: m.id });
+      }
+    },
+    toMissions() {
+      actions.toMenu();
+      store.set({ screen: 'campaign' });
+    },
+    startDaily() {
+      const day = today();
+      let official = false;
+      updateSave((d) => {
+        official = beginDaily(d, day).official;
+      });
+      const seed = dailySeed(day);
+      startMatch({
+        mode: 'daily',
+        setup: dailySetup(seed, [t('team.player'), t(`bot.name.${DAILY_BOT}`)]),
+        bot: DAILY_BOT,
+        daily: { day, official },
+      });
     },
     move(dir) {
       pending.push({ t: 'move', dir });
@@ -634,14 +823,18 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       beginTurn();
     },
     rematch() {
-      startMatch({ ...lastOptions, seed: `${lastOptions.seed}+` });
+      const o = lastOptions;
+      if (!o) return;
+      if (o.mode === 'campaign' && o.missionId) actions.startMission(o.missionId);
+      else if (o.mode === 'daily') actions.startDaily();
+      else startMatch({ ...o, setup: { ...o.setup, seed: `${o.setup.seed}+` } });
     },
     toMenu() {
       match = null;
       bot = null;
       loop.pause();
       view.clearAim();
-      store.set({ screen: 'menu', overlay: null });
+      store.set({ screen: 'menu', overlay: null, result: null, today: today() });
     },
     pause() {
       if (store.get().overlay) return;
@@ -669,7 +862,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
   };
 
-  if (new URLSearchParams(location.search).has('test')) {
+  if (testMode) {
     (window as unknown as { __craterpult: unknown }).__craterpult = {
       ready: true,
       actions,
@@ -692,6 +885,21 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           : null;
       },
       command: (c: Command) => pending.push(c),
+      getSave: () => getSave(),
+      chapterMissions: (c: number) => chapterMissions(c).map((m) => m.id),
+      /** Knock out every enemy unit and end the human's turn: the match resolves as a win. */
+      finishEnemies: (): boolean => {
+        const s = match;
+        if (!s) return false;
+        for (const u of s.units) {
+          if (u.team !== 0 && u.alive) {
+            u.hp = 0;
+            u.pendingDamage = 0;
+          }
+        }
+        if (s.phase === 'aiming' && isHuman(s.activeTeam)) pending.push({ t: 'skip' });
+        return true;
+      },
       /** Finish the bot's search now and queue its shot (deterministic e2e). */
       playBotTurn: (): boolean => {
         const b = bot;

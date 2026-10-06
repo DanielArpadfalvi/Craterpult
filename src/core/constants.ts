@@ -34,4 +34,13 @@ export const DEFAULT_CONFIG = {
   crateChance: 40,
   suddenDeathTurn: 30,
   waterRise: 14,
+  gravityPct: 100,
+  windScale: 100,
+  windEnabled: true,
+  endOnTeamLoss: -1,
 };
+
+/** Gravity per tick² for a gravity percentage (exactly GRAVITY at 100 %). */
+export function scaledGravity(gravityPct: number): number {
+  return Math.trunc((GRAVITY * gravityPct) / 100);
+}

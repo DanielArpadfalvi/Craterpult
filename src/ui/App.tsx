@@ -2,8 +2,11 @@ import type { GameActions } from '../game/app';
 import type { UiState } from '../game/state';
 import type { Store } from '../game/store';
 import { WEAPON_IDS, WEAPONS } from '../core/weapons';
-import { getLanguage, setLanguage, t } from '../i18n';
+import { t } from '../i18n';
 import { cssColor, teamColor } from '../render/palette';
+import { CampaignScreen } from './Campaign';
+import { Menu, SoundButton } from './Menu';
+import { ResultOverlay } from './Result';
 import { useStore } from './useStore';
 
 interface Props {
@@ -18,7 +21,8 @@ interface ViewProps {
 
 export function App({ store, actions }: Props) {
   const s = useStore(store);
-  if (s.screen === 'menu') return <Menu store={store} actions={actions} />;
+  if (s.screen === 'menu') return <Menu s={s} actions={actions} />;
+  if (s.screen === 'campaign') return <CampaignScreen s={s} actions={actions} />;
   return (
     <div class="play" style={{ '--team': cssColor(teamColor(s.activeTeam)) }}>
       <Hud s={s} actions={actions} />
@@ -33,78 +37,7 @@ export function App({ store, actions }: Props) {
       {s.overlay === 'pass' && <PassOverlay s={s} actions={actions} />}
       {s.overlay === 'over' && <OverOverlay s={s} actions={actions} />}
       {s.overlay === 'pause' && <PauseOverlay s={s} actions={actions} />}
-    </div>
-  );
-}
-
-function SoundButton({ muted, actions }: { muted: boolean; actions: GameActions }) {
-  return (
-    <button
-      type="button"
-      class="btn btn-ghost"
-      data-testid="toggle-sound"
-      onClick={() => actions.toggleSound()}
-    >
-      {muted ? t('settings.soundOff') : t('settings.soundOn')}
-    </button>
-  );
-}
-
-const DIFFICULTIES = [1, 2, 3, 4, 5] as const;
-
-function Menu({ store, actions }: Props) {
-  const s = useStore(store);
-  return (
-    <div class="menu" data-testid="menu">
-      <h1 class="logo">
-        CRATER<span>PULT</span>
-      </h1>
-      <p class="tagline">{t('app.tagline')}</p>
-      <div class="bot-card">
-        <button
-          type="button"
-          class="btn btn-primary"
-          data-testid="start-bot"
-          onClick={() => actions.startBotMatch(s.difficulty)}
-        >
-          <span>{t('menu.vsBot')}</span>
-          <small>{t(`difficulty.${s.difficulty}`)}</small>
-        </button>
-        <div class="chips" role="radiogroup" aria-label={t('menu.difficulty')}>
-          {DIFFICULTIES.map((d) => (
-            <button
-              type="button"
-              key={d}
-              role="radio"
-              aria-checked={d === s.difficulty}
-              aria-label={t(`difficulty.${d}`)}
-              class={`chip${d === s.difficulty ? ' is-on' : ''}`}
-              data-testid={`difficulty-${d}`}
-              onClick={() => actions.setDifficulty(d)}
-            >
-              {'★'.repeat(d)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <button
-        type="button"
-        class="btn btn-ghost"
-        data-testid="start-hotseat"
-        onClick={() => actions.startHotseat()}
-      >
-        <span>{t('menu.hotseat')}</span>
-        <small>{t('menu.hotseatSub')}</small>
-      </button>
-      <SoundButton muted={s.muted} actions={actions} />
-      <button
-        type="button"
-        class="btn btn-ghost"
-        data-testid="toggle-language"
-        onClick={() => setLanguage(getLanguage() === 'en' ? 'hu' : 'en')}
-      >
-        {t('menu.language')}
-      </button>
+      {s.overlay === 'result' && <ResultOverlay s={s} actions={actions} />}
     </div>
   );
 }
@@ -460,7 +393,7 @@ function PauseOverlay({ s, actions }: ViewProps) {
           type="button"
           class="btn btn-ghost"
           data-testid="quit"
-          onClick={() => actions.toMenu()}
+          onClick={() => (s.mode === 'campaign' ? actions.toMissions() : actions.toMenu())}
         >
           {t('pause.quit')}
         </button>

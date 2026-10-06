@@ -1,7 +1,39 @@
+import type { MapStyle } from '../core/mapgen';
 import type { Phase, WeaponId } from '../core/types';
+import { createDefaultSave, type SaveData } from './save';
 
-export type Screen = 'menu' | 'playing';
-export type Overlay = 'pass' | 'over' | 'pause' | null;
+export type Screen = 'menu' | 'campaign' | 'playing';
+export type Overlay = 'pass' | 'over' | 'pause' | 'result' | null;
+export type GameMode = 'hotseat' | 'quick' | 'campaign' | 'daily';
+
+/** End-of-match summary for campaign and daily matches. */
+export type MatchResult =
+  | {
+      kind: 'campaign';
+      missionId: string;
+      won: boolean;
+      stars: number;
+      /** Best stars before this match. */
+      prevStars: number;
+      /** A chapter that this result unlocked, or null. */
+      unlockedChapter: number | null;
+      /** The next mission, when it is unlocked. */
+      nextId: string | null;
+      /** Whether each bonus-star rule was met (only meaningful when won). */
+      rulesMet: boolean[];
+    }
+  | {
+      kind: 'daily';
+      won: boolean;
+      score: number;
+      official: boolean;
+      hpLeft: number;
+      turns: number;
+      winBonus: number;
+      turnCost: number;
+      best: number;
+      streak: number;
+    };
 
 export interface TeamHud {
   id: number;
@@ -58,6 +90,22 @@ export interface UiState {
   muted: boolean;
   /** Bumped when the language changes so the whole UI re-renders. */
   lang: string;
+  mode: GameMode;
+  /** Persisted progress (read-only snapshot for the UI). */
+  save: SaveData;
+  /** Chapter tab shown on the campaign screen. */
+  chapter: number;
+  /** Mission whose intro card is open on the campaign screen. */
+  missionIntro: string | null;
+  /** Mission being played. */
+  missionId: string | null;
+  result: MatchResult | null;
+  /** Quick match: units per team (2–4). */
+  teamSize: number;
+  /** Quick match map. */
+  mapStyle: MapStyle | 'random';
+  /** Today's date key (`YYYY-MM-DD`) for the daily challenge. */
+  today: string;
 }
 
 export const INITIAL_UI: UiState = {
@@ -84,4 +132,13 @@ export const INITIAL_UI: UiState = {
   botTurn: false,
   botThinking: false,
   lang: 'en',
+  mode: 'quick',
+  save: createDefaultSave(),
+  chapter: 1,
+  missionIntro: null,
+  missionId: null,
+  result: null,
+  teamSize: 3,
+  mapStyle: 'random',
+  today: '',
 };

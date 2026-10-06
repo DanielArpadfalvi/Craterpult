@@ -33,6 +33,8 @@ export interface Unit {
   vy: number;
   grounded: boolean;
   hp: number;
+  /** Starting hit points (health crates may heal up to max(this, MAX_HP)). */
+  maxHp: number;
   alive: boolean;
   /** -1 left, 1 right. */
   facing: -1 | 1;
@@ -49,6 +51,8 @@ export interface Team {
   nextUnit: number;
   /** True when a bot plays this team (the sim itself treats every team alike). */
   bot: boolean;
+  /** Weapons this team has fired so far (unique, in order of first use). Replaced, never mutated. */
+  used: WeaponId[];
 }
 
 export interface Projectile {
@@ -141,6 +145,17 @@ export interface MatchConfig {
   suddenDeathTurn: number;
   /** Water rise per turn during sudden death (px). */
   waterRise: number;
+  /** Gravity on units, projectiles and crates in percent (100 = normal). */
+  gravityPct: number;
+  /** Wind effect on projectiles in percent (100 = normal). */
+  windScale: number;
+  /** False: the wind is always calm. */
+  windEnabled: boolean;
+  /**
+   * Team whose elimination ends the match at once (campaign: the player), even if several other
+   * teams survive; the winner is then the sole survivor, or -1. -1 = off.
+   */
+  endOnTeamLoss: number;
 }
 
 export interface MatchState {

@@ -85,13 +85,19 @@ export function walk(t: Terrain, u: Unit, dir: -1 | 1): boolean {
  * Integrate an airborne unit for one tick (gravity, terrain collision, landing with fall damage,
  * drowning). Grounded units only re-check their footing.
  */
-export function stepUnit(t: Terrain, u: Unit, waterLevel: number, events: MatchEvent[]): void {
+export function stepUnit(
+  t: Terrain,
+  u: Unit,
+  waterLevel: number,
+  events: MatchEvent[],
+  gravity: number = GRAVITY,
+): void {
   if (!u.alive) return;
   if (u.grounded) {
     if (!standsOn(t, fxFloor(u.x), fxFloor(u.y))) launchUnit(u, 0, 0);
     else return;
   }
-  u.vy += GRAVITY;
+  u.vy += gravity;
   // Sub-step so that no axis moves more than one pixel per step.
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(u.vx), Math.abs(u.vy)) / ONE));
   const sx = Math.trunc(u.vx / steps);

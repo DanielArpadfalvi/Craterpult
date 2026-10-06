@@ -1,4 +1,4 @@
-import { GRAVITY, UNIT_HIT_RADIUS } from './constants';
+import { scaledGravity, UNIT_HIT_RADIUS } from './constants';
 import { fx, fxFloor, ONE } from './fixed';
 import { randInt } from './rng';
 import { isSolid } from './terrain';
@@ -38,7 +38,7 @@ export function stepCrates(s: MatchState): void {
     const px = fxFloor(c.x);
     if (c.grounded && !isSolid(s.terrain, px, fxFloor(c.y) + 1)) c.grounded = false;
     if (!c.grounded) {
-      c.vy = Math.min(CRATE_MAX_FALL, c.vy + (GRAVITY >> 1));
+      c.vy = Math.min(CRATE_MAX_FALL, c.vy + (scaledGravity(s.config.gravityPct) >> 1));
       const steps = Math.max(1, Math.ceil(c.vy / ONE));
       for (let i = 0; i < steps; i++) {
         if (isSolid(s.terrain, px, fxFloor(c.y) + 1)) {
@@ -63,7 +63,9 @@ export function stepCrates(s: MatchState): void {
     });
     if (taker) {
       if (c.kind === 'health') {
-        taker.hp = Math.min(MAX_HP, taker.hp + CRATE_HEALTH);
+        // Heal up to the usual cap (or a champion's own starting HP); never reduce.
+        const cap = Math.max(MAX_HP, taker.maxHp);
+        taker.hp = Math.max(taker.hp, Math.min(cap, taker.hp + CRATE_HEALTH));
       } else if (c.weapon) {
         const team = s.teams[taker.team];
         if (team && team.ammo[c.weapon] >= 0) team.ammo[c.weapon]++;

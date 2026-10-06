@@ -65,9 +65,11 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 24px 16px;
+  justify-content: safe center;
+  gap: 10px;
+  padding: calc(14px + var(--safe-top)) 16px calc(14px + var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: radial-gradient(120% 70% at 50% 100%, #2a1458 0%, #0b0720 55%, #05040f 100%);
   pointer-events: auto;
 }
@@ -91,7 +93,7 @@ button {
 }
 
 .tagline {
-  margin: 0 0 24px;
+  margin: 0 0 4px;
   color: var(--dim);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -561,4 +563,481 @@ button {
   border-color: var(--gold);
   color: var(--gold);
   box-shadow: inset 0 0 10px rgba(255, 210, 63, 0.25);
+}
+
+.chip-stars {
+  letter-spacing: -1px;
+}
+
+.chips .chip:not(.chip-stars) {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.chips-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.chip-label {
+  align-self: flex-start;
+  margin: 2px 0 -4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.menu-row {
+  display: flex;
+  gap: 8px;
+  width: min(320px, 100%);
+}
+
+.menu-row .btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.btn-campaign {
+  --team: var(--accent2);
+  font-size: 19px;
+}
+
+.btn-gold {
+  --team: var(--gold);
+  color: var(--gold);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(320px, 100%);
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(14, 9, 34, 0.7);
+}
+
+.card .btn {
+  width: 100%;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--gold);
+}
+
+.card-date {
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-mod {
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.daily-mod strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.daily-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Campaign */
+.campaign {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(10px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+  overflow-y: auto;
+  background: radial-gradient(120% 70% at 50% 100%, #2a1458 0%, #0b0720 55%, #05040f 100%);
+  pointer-events: auto;
+}
+
+.screen-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen-head h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 22px;
+  color: var(--accent2);
+  text-shadow: 0 0 10px rgba(255, 79, 216, 0.6);
+}
+
+.screen-head .icon-btn {
+  font-size: 26px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.head-stars {
+  color: var(--gold);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(20, 12, 46, 0.6);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.tab small {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tab.is-on {
+  border-color: var(--accent2);
+  box-shadow: inset 0 0 12px rgba(255, 79, 216, 0.25);
+}
+
+.tab.is-locked span {
+  opacity: 0.5;
+}
+
+.chapter-progress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mission {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: rgba(20, 12, 46, 0.75);
+  text-align: left;
+}
+
+.mission.is-done {
+  border-color: rgba(255, 210, 63, 0.55);
+}
+
+.mission:disabled {
+  opacity: 0.45;
+}
+
+.mission-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.mission.is-locked .mission-num {
+  border-color: var(--dim);
+  color: var(--dim);
+}
+
+.mission-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mission-name {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lock {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chapter-locked .lock {
+  width: 40px;
+  height: 40px;
+}
+
+.chapter-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 40px;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px dashed var(--line);
+  color: var(--dim);
+  text-align: center;
+}
+
+.chapter-locked p {
+  margin: 0;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.star {
+  color: rgba(154, 148, 196, 0.35);
+}
+
+.star.is-on {
+  color: var(--gold);
+  text-shadow: 0 0 6px rgba(255, 210, 63, 0.6);
+}
+
+/* Mission intro + results */
+.intro {
+  align-items: stretch;
+  text-align: left;
+  gap: 10px;
+  max-height: 100%;
+  overflow-y: auto;
+  --team: var(--accent2);
+}
+
+.intro h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.intro-desc {
+  color: var(--text) !important;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.intro-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.intro-block h3 {
+  margin: 0 0 2px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent2);
+}
+
+.panel p.dim,
+p.dim {
+  font-size: 13px;
+  color: var(--dim);
+  margin: 0;
+}
+
+.star-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.star-rules li {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.result {
+  gap: 10px;
+}
+
+.result.is-win {
+  --team: var(--gold);
+}
+
+.result.is-lose {
+  --team: var(--danger);
+}
+
+.result-stars {
+  display: flex;
+  gap: 10px;
+  font-size: 52px;
+  line-height: 1;
+  margin: 4px 0;
+}
+
+.big-star {
+  color: rgba(154, 148, 196, 0.25);
+}
+
+.big-star.is-on {
+  color: var(--gold);
+  text-shadow:
+    0 0 14px rgba(255, 210, 63, 0.8),
+    0 0 32px rgba(255, 210, 63, 0.4);
+  animation: star-pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes star-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2) rotate(-40deg);
+  }
+}
+
+.result-note {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text) !important;
+}
+
+.result-note.is-gold {
+  color: var(--gold) !important;
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.score small {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.score strong {
+  font-size: 44px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 14px rgba(255, 210, 63, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-star.is-on {
+    animation: none;
+  }
+}
+
+.rule-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: stretch;
+  text-align: left;
+  font-size: 14px;
+  color: var(--dim);
+}
+
+.rule-checks li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+}
+
+.rule-checks li.is-met {
+  color: var(--text);
+}
+
+.rule-checks li.is-met span {
+  color: var(--gold);
 }

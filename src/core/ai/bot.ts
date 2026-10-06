@@ -80,6 +80,19 @@ const PROFILES: Record<Difficulty, Profile> = {
   },
 };
 
+/** Weapons the search knows how to aim, tried when none of the profile's weapons can fire. */
+const FALLBACK_WEAPONS: WeaponId[] = [
+  'bazooka',
+  'grenade',
+  'cluster',
+  'mortar',
+  'shotgun',
+  'homing',
+  'airstrike',
+  'punch',
+  'dynamite',
+];
+
 type FireCmd = Extract<Command, { t: 'fire' }>;
 
 interface Scored {
@@ -170,7 +183,9 @@ export class BotSearch {
     const s = this.s;
     const p = this.profile;
     const c = unitCenter(this.me);
-    const usable = p.weapons.filter((w) => canFire(s, w));
+    let usable = p.weapons.filter((w) => canFire(s, w));
+    // Restricted arsenal (campaign / daily): fall back to whatever basic weapon it still has.
+    if (usable.length === 0) usable = FALLBACK_WEAPONS.filter((w) => canFire(s, w)).slice(0, 2);
     const foes = this.enemies();
     for (const w of usable) {
       if (w === 'bazooka' || w === 'mortar' || w === 'grenade' || w === 'cluster') {
