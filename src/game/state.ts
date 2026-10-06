@@ -5,6 +5,8 @@ import { createDefaultSave, type SaveData } from './save';
 export type Screen = 'menu' | 'campaign' | 'playing';
 export type Overlay = 'pass' | 'over' | 'pause' | 'result' | null;
 export type GameMode = 'hotseat' | 'quick' | 'campaign' | 'daily';
+/** Full-page sub-screens opened over the current screen (menu, or a paused match for settings). */
+export type Sheet = 'settings' | 'stats' | 'team' | 'quick' | null;
 
 /** End-of-match summary for campaign and daily matches. */
 export type MatchResult =
@@ -41,6 +43,8 @@ export interface TeamHud {
   hp: number;
   maxHp: number;
   alive: number;
+  /** CSS color of the team. */
+  color: string;
 }
 
 export interface WeaponInfo {
@@ -62,9 +66,12 @@ export interface Toast {
 export interface UiState {
   screen: Screen;
   overlay: Overlay;
+  sheet: Sheet;
   phase: Phase;
   activeTeam: number;
   activeName: string;
+  /** CSS color of the active team. */
+  activeColor: string;
   turnSeconds: number;
   wind: number;
   teams: TeamHud[];
@@ -86,8 +93,6 @@ export interface UiState {
   botTurn: boolean;
   /** The bot is still searching for its shot. */
   botThinking: boolean;
-  /** Sound and haptics off. */
-  muted: boolean;
   /** Bumped when the language changes so the whole UI re-renders. */
   lang: string;
   mode: GameMode;
@@ -111,9 +116,11 @@ export interface UiState {
 export const INITIAL_UI: UiState = {
   screen: 'menu',
   overlay: null,
+  sheet: null,
   phase: 'aiming',
   activeTeam: 0,
   activeName: '',
+  activeColor: '#3ef0ff',
   turnSeconds: 0,
   wind: 0,
   teams: [],
@@ -127,7 +134,6 @@ export const INITIAL_UI: UiState = {
   canFire: false,
   winner: null,
   showAimHint: true,
-  muted: false,
   difficulty: 2,
   botTurn: false,
   botThinking: false,

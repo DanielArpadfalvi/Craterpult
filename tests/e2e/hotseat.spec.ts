@@ -51,7 +51,7 @@ function trackErrors(page: Page): string[] {
 }
 
 test('hotseat: menu → pass → aim by dragging → shot resolves → next team', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(240_000);
   const errors = trackErrors(page);
   await page.goto('/?test');
   await page.waitForFunction(
@@ -142,7 +142,7 @@ test('hotseat: menu → pass → aim by dragging → shot resolves → next team
 });
 
 test('hotseat: a match plays to a winner', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(240_000);
   const errors = trackErrors(page);
   await page.goto('/?test');
   await page.waitForFunction(

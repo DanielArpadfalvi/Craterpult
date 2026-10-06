@@ -30,7 +30,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] T5.2 Quick match vs bots, Daily challenge – team size + map style chips; date-seeded daily with modifier, official attempt, score, best + streak
 
 ## M6 – Meta & UI
-- [ ] T6.1 Menu, settings, pause, save (versioned), stats, team customization, EN/HU
+- [x] T6.1 Menu, settings, pause, save (versioned), stats, team customization, EN/HU – save v2 (settings/team/quick choices/stats, v1 migration, legacy mute/lang keys imported); settings (language, sound, haptics, turn time, reduced motion, larger text, aim preview, two-step reset), stats per mode, team name/color/hat (3 hats unlocked by stars), back/Escape navigation, pause restart/settings
 
 ## M7 – Mobile shell & monetization
 - [x] T7.1 Capacitor android/ios, icon/splash from code, Android/iOS CI – Capacitor 8 shell (com.arpadfalvi.craterpult, portrait, iPhone-only), `npm run assets`, platform layer (storage/haptics/lifecycle/system UI), android.yml + ios.yml, docs/RELEASE.md; native builds verified only in GitHub Actions

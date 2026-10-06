@@ -37,11 +37,12 @@ test('vs bots: no pass screen, the bot takes its turn and fires', async ({ page 
   await page.waitForFunction(
     () => (window as unknown as { __craterpult?: Api }).__craterpult?.ready,
   );
+  await page.getByTestId('open-quick').click();
   await page.getByTestId('difficulty-3').click();
   await expect(page.getByTestId('difficulty-3')).toHaveAttribute('aria-checked', 'true');
   await page.screenshot({ path: 'tests/e2e/__screenshots__/menu-bot.png' });
   await call(page, (a) => a.stopRendering());
-  await page.getByTestId('start-bot').click();
+  await page.getByTestId('quick-start').click();
   await expect(page.getByTestId('hud')).toBeVisible();
   await expect(page.getByTestId('pass')).toHaveCount(0);
   expect((await summary(page)).activeTeam).toBe(0);

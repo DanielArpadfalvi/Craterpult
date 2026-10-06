@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 export type Summary = {
+  tick: number;
   activeTeam: number;
   phase: string;
   winner: number | null;
@@ -18,7 +19,21 @@ export type Api = {
   renderFrames(n: number): void;
   playBotTurn(): boolean;
   finishEnemies(): boolean;
-  getSave(): { campaign: { stars: Record<string, number> }; daily: Record<string, unknown> };
+  getSave(): {
+    campaign: { stars: Record<string, number> };
+    daily: Record<string, unknown>;
+    settings: Record<string, unknown>;
+    profile: { name: string; color: number; hat: string };
+    quick: { difficulty: number; teamSize: number; mapStyle: string };
+    stats: {
+      modes: Record<string, { played: number; won: number }>;
+      kills: number;
+      shots: number;
+      hits: number;
+    };
+  };
+  command(c: Record<string, unknown>): void;
+  back(): void;
 };
 
 export const call = <T>(page: Page, fn: (api: Api) => T) =>

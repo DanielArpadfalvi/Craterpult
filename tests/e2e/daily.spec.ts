@@ -61,12 +61,13 @@ test('daily card and result in Hungarian', async ({ page }) => {
 test('quick match options: team size and map style', async ({ page }) => {
   test.setTimeout(60_000);
   const errors = await boot(page);
+  await page.getByTestId('open-quick').click();
   await page.getByTestId('team-size-4').click();
   await page.getByTestId('map-style-cavern').click();
   await expect(page.getByTestId('map-style-cavern')).toHaveAttribute('aria-checked', 'true');
-  await page.getByTestId('start-bot').scrollIntoViewIfNeeded();
-  await page.locator('.quick-card').screenshot({ path: `${SHOTS}/quick-options-en.png` });
-  await page.getByTestId('start-bot').click();
+  expect(await layoutProblems(page)).toEqual([]);
+  await page.screenshot({ path: `${SHOTS}/quick-options-en.png` });
+  await page.getByTestId('quick-start').click();
   await expect(page.getByTestId('hud')).toBeVisible();
   const s = await summary(page);
   expect(s?.units.filter((u) => u.team === 0)).toHaveLength(4);

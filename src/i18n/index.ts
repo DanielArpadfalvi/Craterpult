@@ -5,18 +5,11 @@ export type { TranslationKey };
 export type Language = 'en' | 'hu';
 
 const DICTS: Record<Language, Record<TranslationKey, string>> = { en, hu };
-const STORAGE_KEY = 'craterpult:lang';
-
-let current: Language = detect();
+let current: Language = deviceLanguage();
 const listeners = new Set<() => void>();
 
-function detect(): Language {
-  try {
-    const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (saved === 'en' || saved === 'hu') return saved;
-  } catch {
-    // Storage blocked: fall back to the browser language.
-  }
+/** The device / browser language (Hungarian or English). The choice is stored in the save. */
+export function deviceLanguage(): Language {
   const nav = globalThis.navigator?.language ?? 'en';
   return nav.toLowerCase().startsWith('hu') ? 'hu' : 'en';
 }
@@ -26,12 +19,8 @@ export function getLanguage(): Language {
 }
 
 export function setLanguage(lang: Language): void {
+  if (lang === current) return;
   current = lang;
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, lang);
-  } catch {
-    // Not persisted; the choice still applies for this session.
-  }
   for (const l of listeners) l();
 }
 

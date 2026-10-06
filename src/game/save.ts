@@ -1,3 +1,9 @@
+import type { Difficulty } from '../core/ai/bot';
+import { MAP_STYLES, type MapStyle } from '../core/mapgen';
+import { DEFAULT_PROFILE, sanitizeProfile, type Profile } from './profile';
+import { DEFAULT_SETTINGS, sanitizeSettings, type Settings } from './settings';
+import { createStats, sanitizeStats, type Stats } from './stats';
+
 /**
  * Versioned save game, persisted as one JSON document in localStorage (`craterpult:save`).
  *
@@ -11,7 +17,10 @@
 
 export const SAVE_KEY = 'craterpult:save';
 export const SAVE_BACKUP_KEY = 'craterpult:save.corrupt';
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+/** Pre-v2 localStorage keys, moved into the save on first load. */
+export const LEGACY_MUTE_KEY = 'craterpult:muted';
+export const LEGACY_LANG_KEY = 'craterpult:lang';
 
 export interface DailyDay {
   /** Score of the official attempt (0 until finished). */
@@ -32,8 +41,26 @@ export interface DailyStreak {
   last: string;
 }
 
+/** Quick match choices from the menu. */
+export interface QuickPrefs {
+  difficulty: Difficulty;
+  /** Craters per team (2–4). */
+  teamSize: number;
+  mapStyle: MapStyle | 'random';
+}
+
+export const DEFAULT_QUICK: Readonly<QuickPrefs> = {
+  difficulty: 2,
+  teamSize: 3,
+  mapStyle: 'random',
+};
+
 export interface SaveData {
   version: number;
+  settings: Settings;
+  profile: Profile;
+  quick: QuickPrefs;
+  stats: Stats;
   campaign: {
     /** Best stars (1–3) per mission id; missing = not completed. */
     stars: Record<string, number>;
@@ -50,6 +77,10 @@ export interface SaveData {
 export function createDefaultSave(): SaveData {
   return {
     version: SAVE_VERSION,
+    settings: { ...DEFAULT_SETTINGS },
+    profile: { ...DEFAULT_PROFILE },
+    quick: { ...DEFAULT_QUICK },
+    stats: createStats(),
     campaign: { stars: {} },
     daily: { days: {}, best: 0, streak: { current: 0, best: 0, last: '' } },
   };
@@ -58,15 +89,41 @@ export function createDefaultSave(): SaveData {
 type Raw = Record<string, unknown>;
 
 /** Steps keyed by the version they upgrade *from* (e.g. `1: v1 → v2`). */
-export const MIGRATIONS: Record<number, (raw: Raw) => Raw> = {};
+export const MIGRATIONS: Record<number, (raw: Raw) => Raw> = {
+  // v2: settings, team profile, quick match choices and stats join the save.
+  1: (raw) => ({
+    ...raw,
+    settings: { ...DEFAULT_SETTINGS },
+    profile: { ...DEFAULT_PROFILE },
+    quick: { ...DEFAULT_QUICK },
+    stats: createStats(),
+  }),
+};
 
 const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
 const int = (v: unknown, def: number, min = 0, max = Number.MAX_SAFE_INTEGER): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.trunc(v))) : def;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+function sanitizeQuick(raw: unknown): QuickPrefs {
+  const r = isObj(raw) ? raw : {};
+  const style = r.mapStyle;
+  return {
+    difficulty: int(r.difficulty, DEFAULT_QUICK.difficulty, 1, 5) as Difficulty,
+    teamSize: int(r.teamSize, DEFAULT_QUICK.teamSize, 2, 4),
+    mapStyle:
+      style === 'random' || (MAP_STYLES as readonly unknown[]).includes(style)
+        ? (style as QuickPrefs['mapStyle'])
+        : DEFAULT_QUICK.mapStyle,
+  };
+}
+
 function sanitize(raw: Raw): SaveData {
   const out = createDefaultSave();
+  out.settings = sanitizeSettings(raw.settings);
+  out.profile = sanitizeProfile(raw.profile);
+  out.quick = sanitizeQuick(raw.quick);
+  out.stats = sanitizeStats(raw.stats);
   const camp = isObj(raw.campaign) ? raw.campaign : {};
   if (isObj(camp.stars)) {
     for (const [id, v] of Object.entries(camp.stars)) {
@@ -124,9 +181,30 @@ export function parseSave(text: string | null): SaveData | null {
   return sanitize(data);
 }
 
+/**
+ * Move the pre-v2 `craterpult:muted` / `craterpult:lang` values into the settings (mutates and
+ * returns the save). Returns whether anything changed.
+ */
+export function importLegacyKeys(
+  save: SaveData,
+  legacy: { muted: string | null; lang: string | null },
+): boolean {
+  let changed = false;
+  if (legacy.muted === '1' || legacy.muted === '0') {
+    save.settings.sound = legacy.muted !== '1';
+    changed = true;
+  }
+  if (legacy.lang === 'en' || legacy.lang === 'hu') {
+    save.settings.language = legacy.lang;
+    changed = true;
+  }
+  return changed;
+}
+
 export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
 }
 
 function defaultStorage(): KeyValueStorage | null {
@@ -160,7 +238,28 @@ export function loadSave(from?: KeyValueStorage | null): SaveData {
     }
   }
   cache = parsed ?? createDefaultSave();
+  migrateLegacyKeys();
   return cache;
+}
+
+function migrateLegacyKeys(): void {
+  const read = (k: string): string | null => {
+    try {
+      return storage?.getItem(k) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const legacy = { muted: read(LEGACY_MUTE_KEY), lang: read(LEGACY_LANG_KEY) };
+  if (legacy.muted === null && legacy.lang === null) return;
+  const draft = structuredClone(getSave());
+  if (importLegacyKeys(draft, legacy)) updateSave(() => draft);
+  try {
+    storage?.removeItem?.(LEGACY_MUTE_KEY);
+    storage?.removeItem?.(LEGACY_LANG_KEY);
+  } catch {
+    // Best effort: a leftover key is imported again (harmlessly) on the next load.
+  }
 }
 
 export function getSave(): SaveData {
@@ -188,4 +287,13 @@ export function updateSave(fn: (draft: SaveData) => SaveData | void): SaveData {
 export function onSaveChange(fn: (s: SaveData) => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+/** "Reset progress": campaign, daily and stats start over; settings and the team are kept. */
+export function resetProgress(save: SaveData): SaveData {
+  const fresh = createDefaultSave();
+  fresh.settings = { ...save.settings };
+  fresh.profile = { ...save.profile };
+  fresh.quick = { ...save.quick };
+  return fresh;
 }

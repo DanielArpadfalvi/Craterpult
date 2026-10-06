@@ -3,6 +3,7 @@ import { UNIT_HEIGHT } from '../core/constants';
 import { fxToFloat } from '../core/fixed';
 import type { MatchEvent, MatchState, WeaponId } from '../core/types';
 import type { Camera, Viewport } from './camera';
+import { drawHat, type HatStyle } from './hats';
 import { PALETTE, TEAM_SHAPES, teamColor } from './palette';
 import { inflate, paintTerrain } from './terrainPaint';
 
@@ -91,8 +92,12 @@ export class WorldView {
   private shake = 0;
   private target: { x: number; y: number; age: number } | null = null;
   /** No screen shake for players who asked the OS for reduced motion. */
-  private readonly reducedMotion =
+  private readonly osReducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** Reduced motion (OS or in-app setting): no shake, fewer particles. */
+  private reducedMotion = this.osReducedMotion;
+  /** Per-team color and hat (index = team); missing teams use the default team look. */
+  private looks: readonly { color: number; hat: HatStyle }[] = [];
   private match: MatchState | null = null;
   private view: Viewport = { width: 1, height: 1 };
 
@@ -108,6 +113,20 @@ export class WorldView {
       this.textLayer,
     );
     this.fx.blendMode = 'add';
+  }
+
+  /** Display options from the settings / team customization (looks apply from `setMatch`). */
+  setOptions(o: {
+    reducedMotion: boolean;
+    looks?: readonly { color: number; hat: HatStyle }[];
+  }): void {
+    this.reducedMotion = this.osReducedMotion || o.reducedMotion;
+    if (this.reducedMotion) this.shake = 0;
+    if (o.looks) this.looks = o.looks;
+  }
+
+  private colorOf(team: number): number {
+    return this.looks[team]?.color ?? teamColor(team);
   }
 
   /** Bind a (new) match: builds the terrain texture and unit views. */
@@ -196,7 +215,7 @@ export class WorldView {
               `-${e.amount}`,
               fxToFloat(u.x),
               fxToFloat(u.y) - UNIT_HEIGHT - 18,
-              teamColor(u.team),
+              this.colorOf(u.team),
             );
           break;
         }
@@ -204,7 +223,7 @@ export class WorldView {
           this.shots.push({ x0: e.x0, y0: e.y0, x1: e.x1, y1: e.y1, age: 0 });
           break;
         case 'splash':
-          for (let i = 0; i < 14; i++) {
+          for (let i = 0; i < (this.reducedMotion ? 5 : 14); i++) {
             this.particles.push({
               x: e.x,
               y: s.waterLevel,
@@ -292,7 +311,10 @@ export class WorldView {
         pr.dir,
       );
       const trail = !pr.resting && pr.weapon !== 'mine' && pr.weapon !== 'dynamite';
-      if ((trail && Math.random() < 0.8) || (pr.weapon === 'dynamite' && Math.random() < 0.6)) {
+      if (
+        (trail && Math.random() < (this.reducedMotion ? 0.25 : 0.8)) ||
+        (pr.weapon === 'dynamite' && Math.random() < 0.6)
+      ) {
         const fuseSpark = pr.weapon === 'dynamite';
         this.particles.push({
           x: fuseSpark ? x + 1 : x,
@@ -380,7 +402,7 @@ export class WorldView {
   }
 
   private createUnitView(team: number): UnitView {
-    const color = teamColor(team);
+    const color = this.colorOf(team);
     const root = new Container();
     const body = new Graphics();
     // Glow.
@@ -388,12 +410,11 @@ export class WorldView {
     // Blob body.
     body.roundRect(-5, -11, 10, 11, 5).fill(0x120a24).stroke({ width: 1.6, color });
     // Team hat (shape differs per team for color-blind players).
-    const shape = TEAM_SHAPES[team % TEAM_SHAPES.length];
-    if (shape === 'circle') body.circle(0, -13.5, 2.2).fill(color);
-    else if (shape === 'diamond')
-      body.poly([0, -16.5, 2.5, -13.5, 0, -10.8, -2.5, -13.5]).fill(color);
-    else if (shape === 'triangle') body.poly([0, -16.5, 2.8, -11.5, -2.8, -11.5]).fill(color);
-    else body.rect(-2.2, -15.8, 4.4, 4.4).fill(color);
+    drawHat(
+      body,
+      this.looks[team]?.hat ?? TEAM_SHAPES[team % TEAM_SHAPES.length] ?? 'circle',
+      color,
+    );
     const eyes = new Graphics();
     eyes.circle(1, -7, 1.7).fill(0xffffff).circle(3.6, -7, 1.7).fill(0xffffff);
     eyes.circle(1.6, -7, 0.8).fill(0x05040f).circle(4.2, -7, 0.8).fill(0x05040f);
@@ -494,7 +515,7 @@ export class WorldView {
   }
 
   private burst(x: number, y: number, r: number): void {
-    const n = Math.round(10 + r * 0.8);
+    const n = Math.round((10 + r * 0.8) * (this.reducedMotion ? 0.35 : 1));
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = (0.4 + Math.random()) * r * 6;

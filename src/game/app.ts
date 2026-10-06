@@ -28,7 +28,7 @@ import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
 import { WEAPON_IDS, WEAPONS } from '../core/weapons';
-import { getLanguage, onLanguageChange, t } from '../i18n';
+import { deviceLanguage, getLanguage, onLanguageChange, setLanguage, t } from '../i18n';
 import { aimFromDrag, MIN_FIRE_POWER, previewArc, type Aim } from '../input/aim';
 import {
   clampCamera,
@@ -40,15 +40,27 @@ import {
   type Viewport,
   type WorldBounds,
 } from '../render/camera';
-import { teamColor } from '../render/palette';
+import { cssColor, TEAM_COLORS } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
 import { getPlatform } from '../platform';
 import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
-import { chapterUnlocked, missionUnlocked, recordMission } from './progress';
-import { getSave, loadSave, onSaveChange, updateSave } from './save';
+import { backAction } from './nav';
+import { sanitizeProfile, teamLooks, type Profile, type TeamLook } from './profile';
+import { chapterUnlocked, missionUnlocked, recordMission, totalStars } from './progress';
+import { getSave, loadSave, onSaveChange, resetProgress, updateSave } from './save';
+import {
+  aimPreviewTicks,
+  applySettings,
+  sanitizeSettings,
+  sightLength,
+  turnTicks,
+  type Settings,
+  type SettingsTargets,
+} from './settings';
+import { createTally, recordMatch, tallyEvents, type MatchTally } from './stats';
 import { GameLoop } from './loop';
-import { INITIAL_UI, type GameMode, type UiState } from './state';
+import { INITIAL_UI, type GameMode, type Sheet, type UiState } from './state';
 import { createStore, type Store } from './store';
 
 export interface GameActions {
@@ -79,8 +91,17 @@ export interface GameActions {
   toMenu(): void;
   pause(): void;
   resume(): void;
-  toggleSound(): void;
+  /** Start the current match over (same map; daily: a practice attempt). */
+  restart(): void;
   setDifficulty(d: Difficulty): void;
+  /** Open a full-page sub-screen (settings, stats, team, quick match options) or close it. */
+  openSheet(sheet: Sheet): void;
+  updateSettings(patch: Partial<Settings>): void;
+  updateProfile(patch: Partial<Profile>): void;
+  /** Wipe campaign, daily and stats (settings and team are kept). */
+  resetProgress(): void;
+  /** Hardware back button / Escape. */
+  back(): void;
 }
 
 export interface GameHandle {
@@ -104,30 +125,23 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   stageEl.appendChild(app.canvas);
   app.canvas.style.touchAction = 'none';
 
-  const MUTE_KEY = 'craterpult:muted';
-  const readMuted = (): boolean => {
-    try {
-      return localStorage.getItem(MUTE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  };
   const testMode = new URLSearchParams(location.search).has('test');
   /** Today's date key; `?test&today=YYYY-MM-DD` pins it for deterministic e2e runs. */
   const today = (): string => {
     const forced = new URLSearchParams(location.search).get('today');
     return testMode && forced && /^\d{4}-\d{2}-\d{2}$/.test(forced) ? forced : dateKey(new Date());
   };
+  const initialSave = loadSave();
   const store = createStore<UiState>({
     ...INITIAL_UI,
     lang: getLanguage(),
-    muted: readMuted(),
-    save: loadSave(),
+    save: initialSave,
     today: today(),
+    difficulty: initialSave.quick.difficulty,
+    teamSize: initialSave.quick.teamSize,
+    mapStyle: initialSave.quick.mapStyle,
   });
-  onSaveChange((save) => store.set({ save }));
   const audio = new AudioEngine();
-  audio.setMuted(store.get().muted);
   const platform = getPlatform();
   const haptics = platform.haptics;
   // Browsers only start audio from a user gesture.
@@ -147,6 +161,26 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   let aim: Aim | null = null;
   let hudAcc = 0;
   let renderingStopped = false;
+
+  // Settings (persisted in the save) are pushed to the audio, language, renderer and page.
+  const settingsTargets: SettingsTargets = {
+    setLanguage: (lang) => setLanguage(lang ?? deviceLanguage()),
+    setSound: (on) => audio.setMuted(!on),
+    setReducedMotion(on) {
+      view.setOptions({ reducedMotion: on });
+      document.documentElement.classList.toggle('reduce-motion', on);
+    },
+    setLargeText: (on) => document.documentElement.classList.toggle('large-text', on),
+  };
+  let applied = initialSave.settings;
+  applySettings(applied, settingsTargets);
+  store.set({ lang: getLanguage() });
+  onSaveChange((save) => {
+    store.set({ save });
+    applySettings(save.settings, settingsTargets, applied);
+    applied = save.settings;
+  });
+  const settings = (): Settings => getSave().settings;
 
   const viewport = (): Viewport => ({ width: app.screen.width, height: app.screen.height });
   const bounds = (): WorldBounds =>
@@ -208,6 +242,18 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   /** Pass & play needs the hand-over screen; against a bot it would only get in the way. */
   const needsPass = (): boolean => !!match && match.teams.filter((tm) => !tm.bot).length > 1;
 
+  /** Colors and hats of a match's teams (team 0 = the player's customized crew). */
+  let looks: TeamLook[] = [];
+  const looksFor = (teams: number): TeamLook[] =>
+    teamLooks(teams, getSave().profile, totalStars(getSave()));
+  const teamCss = (team: number): string =>
+    cssColor(TEAM_COLORS[(looks[team]?.color ?? team) % TEAM_COLORS.length] as number);
+  /** The player's team name, or `fallback` when not customized. */
+  const playerName = (fallback: string): string => getSave().profile.name || fallback;
+  /** Default name of a team by its color ("Cyan Crew", …). */
+  const colorName = (look: TeamLook | undefined, team: number): string =>
+    t(`team.${look?.color ?? team}` as 'team.0');
+
   /** Two-team setup for pass & play and quick matches. */
   function versusSetup(
     seed: string,
@@ -215,11 +261,17 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     size: number,
     style: MapStyle,
   ): MatchSetup {
+    const lk = looksFor(2);
     return {
       seed,
       map: { width: 1600, height: 900, waterLevel: 860, style },
       teams: [0, 1].map((i) => ({
-        name: i === 1 && bot ? t(`bot.name.${bot}` as 'bot.name.1') : t(`team.${i}` as 'team.0'),
+        name:
+          i === 1 && bot
+            ? t(`bot.name.${bot}` as 'bot.name.1')
+            : i === 0
+              ? playerName(colorName(lk[0], 0))
+              : colorName(lk[1], 1),
         units: Array.from({ length: size }, (_, k) => `${String.fromCharCode(65 + k)}${i + 1}`),
         bot: i === 1 && bot !== null,
       })),
@@ -228,12 +280,13 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   /** Display names of a mission's teams: you, then the bot crews. */
   function missionNames(m: Mission): string[] {
+    const lk = looksFor(m.enemies.length + 1);
     return [
-      t('team.player'),
+      playerName(t('team.player')),
       ...m.enemies.map((_, i) =>
         m.enemies.length === 1
           ? t(`bot.name.${m.bot}` as 'bot.name.1')
-          : t(`team.${i + 1}` as 'team.1'),
+          : colorName(lk[i + 1], i + 1),
       ),
     ];
   }
@@ -242,10 +295,20 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     lastOptions = opts;
     bot = null;
     shotsFired = opts.setup.teams.map(() => 0);
-    match = createMatch(opts.setup);
+    // The turn time setting applies to every new match (and replays: it is part of the setup).
+    match = createMatch({
+      ...opts.setup,
+      config: { ...opts.setup.config, turnTicks: turnTicks(settings()) },
+    });
+    tally = createTally(match.activeTeam);
     prev = null;
     pending = [];
     aim = null;
+    looks = looksFor(match.teams.length);
+    view.setOptions({
+      reducedMotion: settings().reducedMotion,
+      looks: looks.map((l) => ({ color: TEAM_COLORS[l.color] as number, hat: l.hat })),
+    });
     view.setMatch(match);
     const u = activeUnit(match);
     cam = clampCamera(
@@ -259,6 +322,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     );
     store.set({
       screen: 'playing',
+      sheet: null,
       mode: opts.mode,
       missionId: opts.missionId ?? null,
       missionIntro: null,
@@ -296,6 +360,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   let bot: BotTurn | null = null;
   /** Shots per team this match (test hook). */
   let shotsFired: number[] = [];
+  /** The player's stats of the running match (committed when it ends). */
+  let tally: MatchTally | null = null;
   const BOT_SLICE_MS = 6;
   const BOT_MIN_THINK_MS = 900;
   const BOT_MAX_THINK_MS = 2600;
@@ -364,9 +430,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   function handleEvents(s: MatchState): void {
     view.onEvents(s.events);
+    if (tally) tallyEvents(tally, s.events, s.units);
+    const hapticsOn = settings().haptics;
     for (const f of feedbackFor(s.events, s)) {
       if (f.kind === 'sfx') audio.play(f.sfx, f.a);
-      else if (!store.get().muted) haptics.impact(f.strength);
+      else if (hapticsOn) haptics.impact(f.strength);
     }
     for (const e of s.events) {
       if (e.type === 'turnStart') {
@@ -381,6 +449,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
         }
         publishHud();
       } else if (e.type === 'gameOver') {
+        recordStats(s);
         const result = recordResult(s);
         store.set({ overlay: result ? 'result' : 'over', winner: e.winner, result });
         publishHud();
@@ -400,6 +469,22 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
         toast(t('hud.suddenDeath'));
       }
     }
+  }
+
+  /** Add the finished match to the player's lifetime stats. */
+  function recordStats(s: MatchState): void {
+    const t = tally;
+    const mode = lastOptions?.mode;
+    if (!t || !mode) return;
+    tally = null;
+    updateSave((d) => {
+      recordMatch(d.stats, {
+        mode,
+        won: s.winner === 0,
+        vsBot: s.teams.some((tm) => tm.bot),
+        tally: t,
+      });
+    });
   }
 
   /** Persist a finished campaign / daily match and describe it for the result screen. */
@@ -458,6 +543,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       phase: s.phase,
       activeTeam: s.activeTeam,
       activeName: s.teams[s.activeTeam]?.name ?? '',
+      activeColor: teamCss(s.activeTeam),
       turnSeconds: Math.max(0, Math.ceil(s.turnTicksLeft / 60)),
       wind: s.wind,
       teams: s.teams.map((tm) => {
@@ -468,6 +554,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           hp: members.reduce((n, x) => n + (x.alive ? Math.max(0, x.hp) : 0), 0),
           maxHp: members.reduce((n, x) => n + x.maxHp, 0),
           alive: members.filter((x) => x.alive && x.hp > 0).length,
+          color: teamCss(tm.id),
         };
       }),
       canMove: canMove(s) && !!u?.grounded && st.overlay === null && isHuman(s.activeTeam),
@@ -682,15 +769,16 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       return;
     }
     const c = unitCenter(u);
-    const color = teamColor(u.team);
+    const color = TEAM_COLORS[(looks[u.team]?.color ?? u.team) % TEAM_COLORS.length] as number;
     const weapon = WEAPONS[aim ? store.get().weapon : (bot?.chosen?.weapon ?? 'bazooka')];
-    if (weapon.aim === 'direction')
-      view.drawSight(c.x, c.y, shown.angle, weapon.id === 'drill' ? weapon.range : 160, color);
-    else {
+    if (weapon.aim === 'direction') {
+      const fixed = weapon.id === 'drill' ? weapon.range : 0;
+      view.drawSight(c.x, c.y, shown.angle, sightLength(settings(), fixed), color);
+    } else {
       const speed = (fxToFloat(MAX_LAUNCH_SPEED) * weapon.speedPct) / 100;
       const gravity =
         (((fxToFloat(GRAVITY) * weapon.gravityPct) / 100) * s.config.gravityPct) / 100;
-      const pts = previewArc(shown, speed, gravity, 30, 3);
+      const pts = previewArc(shown, speed, gravity, aimPreviewTicks(settings()), 3);
       view.drawAim(pts, c.x, c.y, shown.power, color);
     }
   }
@@ -718,7 +806,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       startMatch({ mode: 'hotseat', setup: versusSetup(sd, null, 3, 'hills'), bot: null });
     },
     startBotMatch(difficulty, seed) {
-      store.set({ difficulty });
+      actions.setDifficulty(difficulty);
       const st = store.get();
       const sd = seed ?? `bot-${Date.now().toString(36)}`;
       const style =
@@ -730,10 +818,14 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       });
     },
     setTeamSize(n) {
-      store.set({ teamSize: Math.min(4, Math.max(2, Math.round(n))) });
+      const teamSize = Math.min(4, Math.max(2, Math.round(n)));
+      store.set({ teamSize });
+      if (getSave().quick.teamSize !== teamSize)
+        updateSave((d) => void (d.quick.teamSize = teamSize));
     },
     setMapStyle(style) {
       store.set({ mapStyle: style });
+      if (getSave().quick.mapStyle !== style) updateSave((d) => void (d.quick.mapStyle = style));
     },
     openCampaign() {
       const save = getSave();
@@ -781,7 +873,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       const seed = dailySeed(day);
       startMatch({
         mode: 'daily',
-        setup: dailySetup(seed, [t('team.player'), t(`bot.name.${DAILY_BOT}`)]),
+        setup: dailySetup(seed, [playerName(t('team.player')), t(`bot.name.${DAILY_BOT}`)]),
         bot: DAILY_BOT,
         daily: { day, official },
       });
@@ -835,7 +927,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       bot = null;
       loop.pause();
       view.clearAim();
-      store.set({ screen: 'menu', overlay: null, result: null, today: today() });
+      tally = null;
+      store.set({ screen: 'menu', overlay: null, sheet: null, result: null, today: today() });
     },
     pause() {
       if (store.get().overlay) return;
@@ -847,21 +940,69 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       store.set({ overlay: null });
       loop.resume();
     },
+    restart() {
+      const o = lastOptions;
+      if (!o || !match) return;
+      if (o.mode === 'campaign' && o.missionId) actions.startMission(o.missionId);
+      else if (o.mode === 'daily') actions.startDaily();
+      else startMatch(o);
+    },
     setDifficulty(d) {
       store.set({ difficulty: d });
+      if (getSave().quick.difficulty !== d) updateSave((sv) => void (sv.quick.difficulty = d));
     },
-    toggleSound() {
-      const muted = !store.get().muted;
-      store.set({ muted });
-      audio.setMuted(muted);
-      try {
-        localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
-      } catch {
-        // Not persisted.
+    openSheet(sheet) {
+      store.set({ sheet, weaponsOpen: false });
+    },
+    updateSettings(patch) {
+      const before = settings();
+      const next = sanitizeSettings({ ...before, ...patch });
+      if (JSON.stringify(next) === JSON.stringify(before)) return;
+      updateSave((d) => void (d.settings = next));
+      if (next.sound && !before.sound) audio.play('tap');
+      if (next.haptics && !before.haptics) haptics.impact('light');
+    },
+    updateProfile(patch) {
+      const next = sanitizeProfile({ ...getSave().profile, ...patch });
+      if (JSON.stringify(next) === JSON.stringify(getSave().profile)) return;
+      updateSave((d) => void (d.profile = next));
+    },
+    resetProgress() {
+      updateSave((d) => resetProgress(d));
+    },
+    back() {
+      const st = store.get();
+      switch (backAction(st)) {
+        case 'closeSheet':
+          store.set({ sheet: null });
+          break;
+        case 'closeWeapons':
+          actions.toggleWeapons(false);
+          break;
+        case 'closeIntro':
+          actions.openMission(null);
+          break;
+        case 'pause':
+          actions.pause();
+          break;
+        case 'resume':
+          actions.resume();
+          break;
+        case 'leaveMatch':
+          if (st.mode === 'campaign') actions.toMissions();
+          else actions.toMenu();
+          break;
+        case 'toMenu':
+          actions.toMenu();
+          break;
+        case 'none':
+          break;
       }
-      if (!muted) audio.play('tap');
     },
   };
+
+  // Android back button / Escape: close, pause or go back; never exits from the menu.
+  platform.lifecycle.onBackButton(() => actions.back());
 
   // Mobile shell (T7.1): app sent to the background (or tab hidden) pauses a running match.
   platform.lifecycle.onPause(() => {
@@ -892,6 +1033,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       },
       command: (c: Command) => pending.push(c),
       getSave: () => getSave(),
+      back: () => actions.back(),
       chapterMissions: (c: number) => chapterMissions(c).map((m) => m.id),
       /** Knock out every enemy unit and end the human's turn: the match resolves as a win. */
       finishEnemies: (): boolean => {
