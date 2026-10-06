@@ -90,6 +90,9 @@ export class WorldView {
   private time = 0;
   private shake = 0;
   private target: { x: number; y: number; age: number } | null = null;
+  /** No screen shake for players who asked the OS for reduced motion. */
+  private readonly reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   private match: MatchState | null = null;
   private view: Viewport = { width: 1, height: 1 };
 
@@ -184,7 +187,7 @@ export class WorldView {
         case 'explosion':
           this.blasts.push({ x: e.x, y: e.y, r: e.radius, age: 0 });
           this.burst(e.x, e.y, e.radius);
-          this.shake = Math.min(1, this.shake + e.radius / 40);
+          if (!this.reducedMotion) this.shake = Math.min(1, this.shake + e.radius / 40);
           break;
         case 'damage': {
           const u = s.units[e.unit];

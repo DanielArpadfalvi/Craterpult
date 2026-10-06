@@ -66,6 +66,8 @@ export const en = {
   'toast.crateHealth': '+{hp} health',
   'toast.crateWeapon': '+1 {weapon}',
   'toast.crateDropped': 'A crate is coming down!',
+  'settings.soundOn': 'Sound: on',
+  'settings.soundOff': 'Sound: off',
   'pass.title': '{team}, you’re up!',
   'pass.body': 'Pass the phone. Tap when ready.',
   'pass.go': 'Start turn',

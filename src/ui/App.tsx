@@ -18,7 +18,7 @@ interface ViewProps {
 
 export function App({ store, actions }: Props) {
   const s = useStore(store);
-  if (s.screen === 'menu') return <Menu actions={actions} />;
+  if (s.screen === 'menu') return <Menu store={store} actions={actions} />;
   return (
     <div class="play" style={{ '--team': cssColor(teamColor(s.activeTeam)) }}>
       <Hud s={s} actions={actions} />
@@ -32,12 +32,25 @@ export function App({ store, actions }: Props) {
       {s.weaponsOpen && s.overlay === null && <WeaponPanel s={s} actions={actions} />}
       {s.overlay === 'pass' && <PassOverlay s={s} actions={actions} />}
       {s.overlay === 'over' && <OverOverlay s={s} actions={actions} />}
-      {s.overlay === 'pause' && <PauseOverlay actions={actions} />}
+      {s.overlay === 'pause' && <PauseOverlay s={s} actions={actions} />}
     </div>
   );
 }
 
-function Menu({ actions }: { actions: GameActions }) {
+function SoundButton({ muted, actions }: { muted: boolean; actions: GameActions }) {
+  return (
+    <button
+      type="button"
+      class="btn btn-ghost"
+      data-testid="toggle-sound"
+      onClick={() => actions.toggleSound()}
+    >
+      {muted ? t('settings.soundOff') : t('settings.soundOn')}
+    </button>
+  );
+}
+
+function Menu({ store, actions }: Props) {
   return (
     <div class="menu" data-testid="menu">
       <h1 class="logo">
@@ -53,6 +66,7 @@ function Menu({ actions }: { actions: GameActions }) {
         <span>{t('menu.hotseat')}</span>
         <small>{t('menu.hotseatSub')}</small>
       </button>
+      <SoundButton muted={useStore(store).muted} actions={actions} />
       <button
         type="button"
         class="btn btn-ghost"
@@ -394,7 +408,7 @@ function OverOverlay({ s, actions }: ViewProps) {
   );
 }
 
-function PauseOverlay({ actions }: { actions: GameActions }) {
+function PauseOverlay({ s, actions }: ViewProps) {
   return (
     <div class="overlay" data-testid="pause-overlay">
       <div class="panel">
@@ -407,6 +421,7 @@ function PauseOverlay({ actions }: { actions: GameActions }) {
         >
           {t('pause.resume')}
         </button>
+        <SoundButton muted={s.muted} actions={actions} />
         <button
           type="button"
           class="btn btn-ghost"

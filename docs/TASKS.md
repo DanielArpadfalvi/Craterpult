@@ -18,7 +18,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] **T2.3 Hotseat 2 players, 3 weapons** (bazooka, grenade, shotgun) + HUD. AC: e2e plays a full turn cycle; screenshots reviewed.
 
 ## M3 – Game feel & content
-- [ ] T3.1 Explosions, particles, shake, slow-mo, procedural audio, haptics
+- [x] T3.1 Explosions, particles, shake, procedural audio, haptics (slow-mo: later polish)
 - [x] T3.2 16 weapons, crates, sudden death
 - [ ] T3.3 Map themes + generator polish
 

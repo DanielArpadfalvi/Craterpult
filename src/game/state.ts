@@ -48,6 +48,8 @@ export interface UiState {
   winner: number | null;
   /** Shows the aiming hint until the first shot of the session. */
   showAimHint: boolean;
+  /** Sound and haptics off. */
+  muted: boolean;
   /** Bumped when the language changes so the whole UI re-renders. */
   lang: string;
 }
@@ -71,5 +73,6 @@ export const INITIAL_UI: UiState = {
   canFire: false,
   winner: null,
   showAimHint: true,
+  muted: false,
   lang: 'en',
 };

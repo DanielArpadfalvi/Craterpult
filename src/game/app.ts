@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { GRAVITY, MAX_LAUNCH_SPEED } from '../core/constants';
 import { fxFloor, fxToFloat } from '../core/fixed';
+import { AudioEngine } from '../audio/engine';
 import { CRATE_HEALTH } from '../core/crates';
 import { activeUnit, canFire, canMove, createMatch, step } from '../core/match';
 import type { Command, MatchState, WeaponId } from '../core/types';
@@ -20,6 +21,8 @@ import {
 } from '../render/camera';
 import { teamColor } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
+import { createWebHaptics } from '../platform/haptics';
+import { feedbackFor } from './feedback';
 import { GameLoop } from './loop';
 import { INITIAL_UI, type UiState } from './state';
 import { createStore, type Store } from './store';
@@ -41,6 +44,7 @@ export interface GameActions {
   toMenu(): void;
   pause(): void;
   resume(): void;
+  toggleSound(): void;
 }
 
 export interface GameHandle {
@@ -64,7 +68,20 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   stageEl.appendChild(app.canvas);
   app.canvas.style.touchAction = 'none';
 
-  const store = createStore<UiState>({ ...INITIAL_UI, lang: getLanguage() });
+  const MUTE_KEY = 'craterpult:muted';
+  const readMuted = (): boolean => {
+    try {
+      return localStorage.getItem(MUTE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const store = createStore<UiState>({ ...INITIAL_UI, lang: getLanguage(), muted: readMuted() });
+  const audio = new AudioEngine();
+  audio.setMuted(store.get().muted);
+  const haptics = createWebHaptics();
+  // Browsers only start audio from a user gesture.
+  window.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
   onLanguageChange(() => {
     store.set({ lang: getLanguage() });
     if (match) publishHud();
@@ -164,6 +181,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   function handleEvents(s: MatchState): void {
     view.onEvents(s.events);
+    for (const f of feedbackFor(s.events, s)) {
+      if (f.kind === 'sfx') audio.play(f.sfx, f.a);
+      else if (!store.get().muted) haptics.impact(f.strength);
+    }
     for (const e of s.events) {
       if (e.type === 'turnStart') {
         aim = null;
@@ -507,6 +528,17 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (store.get().overlay !== 'pause') return;
       store.set({ overlay: null });
       loop.resume();
+    },
+    toggleSound() {
+      const muted = !store.get().muted;
+      store.set({ muted });
+      audio.setMuted(muted);
+      try {
+        localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+      } catch {
+        // Not persisted.
+      }
+      if (!muted) audio.play('tap');
     },
   };
 

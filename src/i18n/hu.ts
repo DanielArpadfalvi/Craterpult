@@ -68,6 +68,8 @@ export const hu: Record<TranslationKey, string> = {
   'toast.crateHealth': '+{hp} élet',
   'toast.crateWeapon': '+1 {weapon}',
   'toast.crateDropped': 'Láda érkezik!',
+  'settings.soundOn': 'Hang: be',
+  'settings.soundOff': 'Hang: ki',
   'pass.title': '{team}, ti jöttök!',
   'pass.body': 'Add át a telefont. Koppints, ha kész vagy.',
   'pass.go': 'Kör indítása',
