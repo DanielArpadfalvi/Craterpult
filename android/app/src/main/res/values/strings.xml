@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Craterpult</string>
+    <string name="title_activity_main">Craterpult</string>
+    <string name="package_name">com.arpadfalvi.craterpult</string>
+    <string name="custom_url_scheme">com.arpadfalvi.craterpult</string>
+</resources>
