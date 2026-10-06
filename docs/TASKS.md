@@ -37,7 +37,10 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] T7.2 RevenueCat full-version paywall + restore – one non-consumable `craterpult_full_version` (entitlement `full_version`); free: chapter 1, bots 1–2, teams ≤3, hills/islands, pass & play; Full Version: chapters 2–3, bots 3–5, team size 4, Daily, all map styles, cosmetic hats (crown/horns/halo; plain team shapes stay free); neon sheet (price from store, buy, restore, Terms/Privacy, pending/cancel/fail/success states), lock badges + menu button; RevenueCat via platform layer, native build without key = "store unavailable" (never free); web mock + `?test` hooks; merged onto M6 (lock badges on the quick-options screen and team hats); real store purchases verified only on device
 
 ## M8 – Release 1.0
-- [ ] T8.1 Store listing EN/HU, screenshot generator, privacy policy, QA pass
+- [x] T8.1 Store listing EN/HU, screenshot generator, privacy policy, QA pass
+- [ ] T8.2 QA fixes – UI & release hygiene: menu squeeze at 360×640, Settings "About" (privacy, support, restore, version), paywall legal links above the fold, back button (hotseat hand-over → pause, main menu → minimize), wind gauge value, weapon-sheet strip, consistent team name, listing hat wording, versions 1.0.0 (package.json, Android, iOS), hidden sourcemaps, dead code, iOS PrivacyInfo, meta.spec teardown flake
+- [ ] T8.3 QA fixes – gameplay: off-screen enemy indicators + match-start pan, campaign chapter 2–3 balance (sim-verified), HUD publish re-render throttling
+- [ ] T8.4 Owner: craterpult-site repo + Pages, support mailbox, RevenueCat project/product/secrets, sandbox purchase on device
 
 ## M9 – 1.1 Online
 - [ ] T9.1 Backend decision + async match service, invites, push
