@@ -7,7 +7,7 @@ const SHOTS = 'tests/e2e/__screenshots__';
 
 test('daily challenge: official attempt, score and streak, then practice', async ({ page }) => {
   test.setTimeout(90_000);
-  const errors = await boot(page, '&today=2026-10-06');
+  const errors = await boot(page, '&today=2026-10-06&full');
   const card = page.getByTestId('daily-card');
   await expect(card).toBeVisible();
   await expect(card).toContainText('2026-10-06');
@@ -45,7 +45,7 @@ test('daily challenge: official attempt, score and streak, then practice', async
 
 test('daily card and result in Hungarian', async ({ page }) => {
   test.setTimeout(90_000);
-  const errors = await boot(page, '&today=2026-10-07', 'hu');
+  const errors = await boot(page, '&today=2026-10-07&full', 'hu');
   await expect(page.getByTestId('start-daily')).toHaveText('Mai kihívás indítása');
   await page.getByTestId('daily-card').screenshot({ path: `${SHOTS}/daily-card-hu.png` });
   await call(page, (a) => a.stopRendering());
@@ -60,7 +60,7 @@ test('daily card and result in Hungarian', async ({ page }) => {
 
 test('quick match options: team size and map style', async ({ page }) => {
   test.setTimeout(60_000);
-  const errors = await boot(page);
+  const errors = await boot(page, '&full');
   await page.getByTestId('team-size-4').click();
   await page.getByTestId('map-style-cavern').click();
   await expect(page.getByTestId('map-style-cavern')).toHaveAttribute('aria-checked', 'true');

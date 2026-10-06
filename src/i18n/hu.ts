@@ -1,5 +1,6 @@
 import type { TranslationKey } from './en';
 import { MISSIONS_HU } from './missions.hu';
+import { PAYWALL_HU } from './paywall.hu';
 
 export const hu: Record<TranslationKey, string> = {
   'app.title': 'Craterpult',
@@ -166,4 +167,5 @@ export const hu: Record<TranslationKey, string> = {
   'daily.practiceNote': 'Gyakorlás – a hivatalos pontszám marad',
   'daily.streakLine': '{n} napos sorozat',
   ...MISSIONS_HU,
+  ...PAYWALL_HU,
 };

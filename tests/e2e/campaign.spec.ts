@@ -16,8 +16,10 @@ test('campaign: mission 1 → win → stars → mission 2 unlocked', async ({ pa
   await expect(page.getByTestId('campaign')).toBeVisible();
   await expect(page.getByTestId('mission-c1-01')).toBeEnabled();
   await expect(page.getByTestId('mission-c1-02')).toBeDisabled();
+  // Free version: chapter 2 is a Full Version chapter (the sheet opens; see paywall.spec.ts).
   await page.getByTestId('chapter-tab-2').click();
-  await expect(page.getByTestId('chapter-locked')).toBeVisible();
+  await page.getByTestId('paywall-close').click();
+  await expect(page.getByTestId('chapter-fv-locked')).toBeVisible();
   await page.getByTestId('chapter-tab-1').click();
   expect(await layoutProblems(page)).toEqual([]);
   await page.screenshot({ path: `${SHOTS}/campaign-grid-en.png` });
@@ -81,7 +83,7 @@ test('campaign in Hungarian: grid, intro and a lost mission', async ({ page }) =
       JSON.stringify({ version: 1, campaign: { stars }, daily: {} }),
     );
   });
-  const errors = await boot(page, '', 'hu');
+  const errors = await boot(page, '&full', 'hu');
   await expect(page.getByTestId('open-campaign')).toContainText('Hadjárat');
   await page.screenshot({ path: `${SHOTS}/menu-hu.png`, fullPage: true });
   expect(await layoutProblems(page)).toEqual([]);

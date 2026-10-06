@@ -1,5 +1,6 @@
 import type { MapStyle } from '../core/mapgen';
 import type { Phase, WeaponId } from '../core/types';
+import { INITIAL_PAYWALL, type PaywallState } from './paywall';
 import { createDefaultSave, type SaveData } from './save';
 
 export type Screen = 'menu' | 'campaign' | 'playing';
@@ -106,6 +107,11 @@ export interface UiState {
   mapStyle: MapStyle | 'random';
   /** Today's date key (`YYYY-MM-DD`) for the daily challenge. */
   today: string;
+  // T7.2 monetization (see src/game/entitlement.ts, src/game/paywall.ts).
+  /** The Full Version is owned (store entitlement). */
+  fullVersion: boolean;
+  /** Full Version sheet and purchase flow. */
+  paywall: PaywallState;
 }
 
 export const INITIAL_UI: UiState = {
@@ -141,4 +147,6 @@ export const INITIAL_UI: UiState = {
   teamSize: 3,
   mapStyle: 'random',
   today: '',
+  fullVersion: false,
+  paywall: INITIAL_PAYWALL,
 };

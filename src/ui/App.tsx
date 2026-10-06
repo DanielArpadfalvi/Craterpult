@@ -6,6 +6,7 @@ import { t } from '../i18n';
 import { cssColor, teamColor } from '../render/palette';
 import { CampaignScreen } from './Campaign';
 import { Menu, SoundButton } from './Menu';
+import { PaywallSheet } from './Paywall';
 import { ResultOverlay } from './Result';
 import { useStore } from './useStore';
 
@@ -21,6 +22,15 @@ interface ViewProps {
 
 export function App({ store, actions }: Props) {
   const s = useStore(store);
+  return (
+    <>
+      <Screens s={s} actions={actions} />
+      {s.paywall.open && <PaywallSheet s={s} actions={actions} />}
+    </>
+  );
+}
+
+function Screens({ s, actions }: ViewProps) {
   if (s.screen === 'menu') return <Menu s={s} actions={actions} />;
   if (s.screen === 'campaign') return <CampaignScreen s={s} actions={actions} />;
   return (

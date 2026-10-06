@@ -23,7 +23,7 @@ import {
   dailySetup,
 } from '../core/daily';
 import { activeUnit, canFire, canMove, createMatch, step, type MatchSetup } from '../core/match';
-import { MAP_STYLES, type MapStyle } from '../core/mapgen';
+import type { MapStyle } from '../core/mapgen';
 import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
@@ -50,8 +50,10 @@ import { getSave, loadSave, onSaveChange, updateSave } from './save';
 import { GameLoop } from './loop';
 import { INITIAL_UI, type GameMode, type UiState } from './state';
 import { createStore, type Store } from './store';
+import { ownedMapStyles } from './entitlement';
+import { createMonetization, type MonetizationActions } from './monetization';
 
-export interface GameActions {
+export interface GameActions extends MonetizationActions {
   startHotseat(seed?: string): void;
   startBotMatch(difficulty: Difficulty, seed?: string): void;
   setTeamSize(n: number): void;
@@ -130,6 +132,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   audio.setMuted(store.get().muted);
   const platform = getPlatform();
   const haptics = platform.haptics;
+  const shop = createMonetization({ store, platform, audio });
   // Browsers only start audio from a user gesture.
   window.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
   onLanguageChange(() => {
@@ -713,6 +716,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   // ---------------------------------------------------------------------------------------------
 
   const actions: GameActions = {
+    ...shop.actions,
     startHotseat(seed) {
       const sd = seed ?? `hs-${Date.now().toString(36)}`;
       startMatch({ mode: 'hotseat', setup: versusSetup(sd, null, 3, 'hills'), bot: null });
@@ -722,7 +726,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       const st = store.get();
       const sd = seed ?? `bot-${Date.now().toString(36)}`;
       const style =
-        st.mapStyle === 'random' ? pick(createRng(`style:${sd}`), MAP_STYLES) : st.mapStyle;
+        st.mapStyle === 'random'
+          ? pick(createRng(`style:${sd}`), ownedMapStyles(st.fullVersion))
+          : st.mapStyle;
       startMatch({
         mode: 'quick',
         setup: versusSetup(sd, difficulty, st.teamSize, style),
@@ -862,6 +868,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (!muted) audio.play('tap');
     },
   };
+  shop.gate(actions);
 
   // Mobile shell (T7.1): app sent to the background (or tab hidden) pauses a running match.
   platform.lifecycle.onPause(() => {
@@ -869,9 +876,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   });
 
   if (testMode) {
+    const purchasesTestApi = await shop.testSetup(new URLSearchParams(location.search));
     (window as unknown as { __craterpult: unknown }).__craterpult = {
       ready: true,
       actions,
+      purchases: purchasesTestApi,
       getMatch: () => match,
       summary: () => {
         const s = match;

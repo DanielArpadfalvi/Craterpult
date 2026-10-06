@@ -51,6 +51,8 @@ GitHub → a repó → *Settings → Secrets and variables → Actions → New r
 | `ANDROID_KEY_ALIAS` | Android | a kulcs aliasa (pl. `upload`) |
 | `ANDROID_KEY_PASSWORD` | Android | a kulcs jelszava |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Android | opcionális: Google Play service account JSON (1.4) |
+| `VITE_RC_API_KEY_ANDROID` | Android | RevenueCat publikus SDK-kulcs (`goog_…`) (6.4) |
+| `VITE_RC_API_KEY_IOS` | iOS | RevenueCat publikus SDK-kulcs (`appl_…`) (6.4) |
 | `ASC_KEY_ID` | iOS | App Store Connect API kulcs Key ID (2.3) |
 | `ASC_ISSUER_ID` | iOS | App Store Connect Issuer ID |
 | `ASC_KEY_P8` | iOS | az `AuthKey_….p8` base64-ben |
@@ -210,3 +212,93 @@ tartalmilag nem változik. Újragenerálás után **nézd át a képeket**.
   változásait.
 - Natív API-t csak a `src/platform/` modulok importálhatnak (`@capacitor/*`, ESLint-szabály);
   minden szolgáltatásnak van web/mock megvalósítása (`createPlatform`).
+
+---
+
+## 6. Vásárlás: RevenueCat beállítása (Teljes verzió)
+
+A játék egyetlen egyszeri vásárlást árul: **Teljes verzió** (~4,99 USD), termékazonosító
+**`craterpult_full_version`** (nem fogyó / non-consumable), ami a RevenueCatben a **`full_version`**
+jogosultságot (entitlement) adja. A kód (`src/platform/purchasesRevenueCat.ts`) pontosan ezeket a
+neveket várja. Nincs reklám, nincs energia, nincs előfizetés.
+
+**Ingyenes:** 1. fejezet (1–10. küldetés), gyors meccs botok ellen 1–2. nehézségen, legfeljebb 3 fős
+csapatokkal, „Dombok” és „Szigetek” pályán (a „Véletlen” ezek közül választ), egy telefonon (teljes).
+**Teljes verzió:** 2–3. fejezet, 3–5. szintű botok, 4 fős csapat, Napi kihívás, minden pályatípus,
+díszkalapok (a kalapok az M6 csapat-testreszabással jönnek; a szabály: `hatsNeedFull()`).
+A szabályok egy helyen vannak: `src/game/entitlement.ts`. A kampány-előrehaladás (7 küldetés a
+következő fejezethez) a Teljes verzió mellett is érvényes.
+
+Hogyan működik: a natív build a RevenueCat Capacitor pluginnal beszél (anonim felhasználói
+azonosító, nincs bejelentkezés). A legutóbbi jogosultság-állapotot a készülék elmenti, így a
+megvett Teljes verzió **offline is** feloldva marad; online a RevenueCat válasza az irányadó (pl.
+visszatérítés után újra zárol, és a zárolt beállítások – 3–5. bot, 4 fős csapat, extra pálya –
+visszaállnak ingyenesre). Weben (dev, e2e) a teszt-bolt (`MockPurchases`) fut. Ha a natív buildben
+**nincs RevenueCat-kulcs**, a játék **nem** a teszt-boltra vált (az ingyen feloldana), hanem „nem
+elérhető” boltot használ: a Teljes verzió lap „az áruház nem érhető el” állapotot mutat, a
+vásárlás mindig sikertelen. Ilyen buildet nem szabad kiadni – a release jobok ilyenkor
+figyelmeztetést (`::warning`) írnak ki.
+
+### 6.1 Előfeltételek
+- App Store Connect: a **Paid Applications Agreement** elfogadva, adó- és bankadatok kitöltve
+  (*Business*). Enélkül a termék nem tölthető be.
+- Play Console: **fizetési profil** (merchant account) létrehozva, és legalább egy AAB feltöltve
+  (belső tesztre is elég, lásd 1.3) – addig a Console nem enged terméket létrehozni.
+- **Adatvédelmi oldal**: a `https://danielarpadfalvi.github.io/craterpult-site/privacy.html`
+  (`src/game/links.ts`) **még nincs közzétéve** – a kiadás előtt létre kell hozni a
+  `DanielArpadfalvi/craterpult-site` publikus repót GitHub Pages-szel (a Swaplight-site mintájára),
+  különben a fizetőfal és a store-adatlap adatvédelmi linkje 404-et ad (T8.1). A felhasználási
+  feltételek az Apple szabványos EULA-ja (`TERMS_URL`).
+
+### 6.2 Termék létrehozása a boltokban
+**App Store Connect** → Craterpult → *Monetization → In-App Purchases → +*
+1. Típus: **Non-Consumable**, Reference Name: „Full Version”, Product ID: `craterpult_full_version`.
+2. Ár: a 4,99 USD-nek megfelelő sáv, elérhetőség: minden ország.
+3. Lokalizáció (EN + HU): „Full Version” / „Teljes verzió”, leírás pl. „Every chapter, bot level,
+   map and the Daily Challenge.” / „Minden fejezet, botszint, pálya és a Napi kihívás.”
+4. *Review Information*: képernyőkép a vásárlási lapról (`tests/e2e/__screenshots__/paywall-en.png`,
+   az e2e generálja), megjegyzés a reviewernek: „Tap Full Version on the main menu or any item with
+   a gold lock.”
+5. Az első IAP-t **az app első beküldésével együtt** kell review-ra küldeni.
+
+**Play Console** → Craterpult → *Monetize → Products → In-app products → Create product*
+1. Product ID: `craterpult_full_version`, név és leírás EN + HU, ár: 4,99 USD.
+2. *Save → Activate*.
+
+### 6.3 RevenueCat projekt
+1. app.revenuecat.com → *Create new project*: „Craterpult”.
+2. *Apps → + New → App Store*: Bundle ID `com.arpadfalvi.craterpult`; **In-App Purchase Key**
+   (App Store Connect → *Users and Access → Integrations → In-App Purchase → Generate*) feltöltése
+   a Key ID + Issuer ID-vel.
+3. *Apps → + New → Play Store*: package `com.arpadfalvi.craterpult`; service account JSON
+   (*View app information*, *View financial data*, *Manage orders and subscriptions* joggal).
+4. *Product catalog → Products*: mindkét apphoz a `craterpult_full_version` termék.
+5. *Entitlements → + New*: **`full_version`** → *Attach* → mindkét termék.
+6. *Offerings*: a `default` offering (Current) → package `$rc_lifetime` → mindkét termék. A játék a
+   current offeringből olvassa az árat; ha nincs, közvetlenül a termékazonosítóval kéri le.
+
+### 6.4 API kulcsok → GitHub secretek
+RevenueCat → *Project settings → API keys* → a két **Public app-specific API key**:
+`VITE_RC_API_KEY_IOS` (`appl_…`) és `VITE_RC_API_KEY_ANDROID` (`goog_…`). Publikus SDK-kulcsok
+(bekerülnek az appba), mégis secretként tároljuk. A workflow-k a `vite build` lépésnek adják át
+őket. Helyi natív buildhez: `VITE_RC_API_KEY_ANDROID=goog_… npx vite build && npx cap sync`.
+
+### 6.5 Natív beállítások
+- **Android**: `com.android.vending.BILLING` engedély az `AndroidManifest.xml`-ben; a plugin
+  (`@revenuecat/purchases-capacitor`) a gradle fájlokban regisztrálva (`cap sync`).
+- **iOS**: StoreKithez nem kell külön képesség; a plugin Swift Package-ként kerül be
+  (`ios/App/CapApp-SPM/Package.swift`).
+- **Adatvédelmi címkék**: App Store *App Privacy* → „Purchases / Purchase History” – nem
+  kapcsolódik a felhasználóhoz, nem követésre (RevenueCat); Play *Data safety* → „Purchase history”.
+
+### 6.6 Teszt vásárlás
+- **iOS**: TestFlight-buildek sandboxban vásárolnak. Visszaállítás teszt: app törlése, újratelepítés
+  → *Vásárlások visszaállítása*.
+- **Android**: Play Console → *License testing* → tesztelők Gmail-címe; a belső tesztsávon
+  „Test card, always approves / declines / slow test card” (az utóbbival a függőben lévő vásárlás is
+  kipróbálható). Visszatérítés a *Order management* oldalon → a következő online indításkor újra zárol.
+- **RevenueCat**: *Customers* → a `full_version` kézzel is adható (*Grant promotional entitlement*).
+- **Web / fejlesztés**: `npm run dev` alatt a teszt-bolt fut. `?test` mellett a
+  `window.__craterpult.purchases` hookok: `setNextOutcome('cancelled' | 'pending' | 'failed')`,
+  `setLatency(ms)`, `ownedElsewhere()` (visszaállításhoz), `setFullVersion(bool)`; a `?test&full`
+  paraméter eleve megvett Teljes verzióval indít.

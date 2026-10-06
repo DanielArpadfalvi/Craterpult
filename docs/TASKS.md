@@ -34,7 +34,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 
 ## M7 – Mobile shell & monetization
 - [x] T7.1 Capacitor android/ios, icon/splash from code, Android/iOS CI – Capacitor 8 shell (com.arpadfalvi.craterpult, portrait, iPhone-only), `npm run assets`, platform layer (storage/haptics/lifecycle/system UI), android.yml + ios.yml, docs/RELEASE.md; native builds verified only in GitHub Actions
-- [ ] T7.2 RevenueCat full-version paywall + restore
+- [x] T7.2 RevenueCat full-version paywall + restore – one non-consumable `craterpult_full_version` (entitlement `full_version`); free: chapter 1, bots 1–2, teams ≤3, hills/islands, pass & play; Full Version: chapters 2–3, bots 3–5, team size 4, Daily, all map styles, hats (gating rule ready for M6); neon sheet (price from store, buy, restore, Terms/Privacy, pending/cancel/fail/success states), lock badges + menu button; RevenueCat via platform layer, native build without key = "store unavailable" (never free); web mock + `?test` hooks; real store purchases verified only on device
 
 ## M8 – Release 1.0
 - [ ] T8.1 Store listing EN/HU, screenshot generator, privacy policy, QA pass

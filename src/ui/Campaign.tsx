@@ -19,6 +19,8 @@ import {
 import type { UiState } from '../game/state';
 import { t, type TranslationKey } from '../i18n';
 import { LockIcon, Stars } from './icons';
+import { chapterNeedsFull } from '../game/entitlement';
+import { FullVersionBadge, fvLock } from './Paywall';
 import { missionDesc, missionName, missionTags, starRuleText } from './missionText';
 
 interface Props {
@@ -50,18 +52,19 @@ export function CampaignScreen({ s, actions }: Props) {
       <div class="tabs" role="tablist">
         {CHAPTERS.map((c) => {
           const unlocked = chapterUnlocked(s.save, c);
+          const fv = fvLock(s, chapterNeedsFull(c));
           return (
             <button
               type="button"
               key={c}
               role="tab"
               aria-selected={c === chapter}
-              class={`tab${c === chapter ? ' is-on' : ''}${unlocked ? '' : ' is-locked'}`}
+              class={`tab${c === chapter ? ' is-on' : ''}${unlocked && !fv ? '' : ' is-locked'}${fv}`}
               data-testid={`chapter-tab-${c}`}
               onClick={() => actions.selectChapter(c)}
             >
               <small>
-                {unlocked ? null : <LockIcon />}
+                {fv ? <FullVersionBadge /> : unlocked ? null : <LockIcon />}
                 {t('campaign.chapter', { n: c })}
               </small>
               <span>{t(`chapter.${c}` as TranslationKey)}</span>
@@ -69,7 +72,27 @@ export function CampaignScreen({ s, actions }: Props) {
           );
         })}
       </div>
-      {open ? (
+      {fvLock(s, chapterNeedsFull(chapter)) ? (
+        <>
+          <div class="fv-chapter" data-testid="chapter-fv-locked">
+            <FullVersionBadge label />
+            <p>{t('paywall.chapterLocked', { n: chapter })}</p>
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-testid="chapter-unlock"
+              onClick={() => actions.openPaywall('campaign')}
+            >
+              {t('paywall.buy')}
+            </button>
+          </div>
+          <div class="mission-grid">
+            {chapterMissions(chapter).map((m) => (
+              <MissionTile key={m.id} m={m} s={s} actions={actions} />
+            ))}
+          </div>
+        </>
+      ) : open ? (
         <>
           <p class="chapter-progress" data-testid="chapter-progress">
             {t('campaign.progress', {
@@ -95,24 +118,28 @@ export function CampaignScreen({ s, actions }: Props) {
 }
 
 function MissionTile({ m, s, actions }: { m: Mission } & Props) {
+  const fv = fvLock(s, chapterNeedsFull(m.chapter));
   const unlocked = missionUnlocked(s.save, m);
   const stars = missionStars(s.save, m.id);
   return (
     <button
       type="button"
-      class={`mission${unlocked ? '' : ' is-locked'}${stars > 0 ? ' is-done' : ''}`}
+      class={`mission${unlocked && !fv ? '' : ' is-locked'}${stars > 0 ? ' is-done' : ''}${fv}`}
       data-testid={`mission-${m.id}`}
       data-stars={stars}
-      disabled={!unlocked}
+      data-locked={fv ? 'full' : unlocked ? 'false' : 'true'}
+      disabled={!unlocked && !fv}
       aria-label={
-        unlocked ? `${m.chapter}-${m.index} ${missionName(m.id)}` : t('campaign.missionLocked')
+        unlocked || fv
+          ? `${m.chapter}-${m.index} ${missionName(m.id)}`
+          : t('campaign.missionLocked')
       }
       onClick={() => actions.openMission(m.id)}
     >
-      <span class="mission-num">{unlocked ? m.index : <LockIcon />}</span>
+      <span class="mission-num">{fv ? <LockIcon /> : unlocked ? m.index : <LockIcon />}</span>
       <span class="mission-body">
         <span class="mission-name">
-          {unlocked ? missionName(m.id) : t('campaign.missionLocked')}
+          {unlocked || fv ? missionName(m.id) : t('campaign.missionLocked')}
         </span>
         <Stars n={stars} />
       </span>

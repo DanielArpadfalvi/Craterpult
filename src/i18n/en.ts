@@ -1,4 +1,5 @@
 import { MISSIONS_EN } from './missions.en';
+import { PAYWALL_EN } from './paywall.en';
 
 export const en = {
   'app.title': 'Craterpult',
@@ -165,6 +166,7 @@ export const en = {
   'daily.practiceNote': 'Practice – the official score stays',
   'daily.streakLine': '{n}-day streak',
   ...MISSIONS_EN,
+  ...PAYWALL_EN,
 } as const;
 
 export type TranslationKey = keyof typeof en;
