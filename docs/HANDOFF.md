@@ -29,7 +29,7 @@ Tesztek a main-en: 243 unit (`npm run check`), 29 e2e (`npm run test:e2e`) – m
 ## 3. Nyitott döntések / ismert hibák
 
 - Valódi vásárlás (StoreKit/Play Billing, RevenueCat) még sosem futott: kell RevenueCat projekt, termék `craterpult_full_version`, entitlement `full_version`, secretek `VITE_RC_API_KEY_IOS/ANDROID`.
-- Az adatvédelmi oldal (`https://danielarpadfalvi.github.io/craterpult-site/privacy.html`) **nincs publikálva** – M8-ban a Swaplight mintájára (`docs/site/` + `scripts/publish-site.sh` + külön `craterpult-site` repó).
+- Az adatvédelmi oldal tartalma **pusholva** a `DanielArpadfalvi/craterpult-site` repóba (2026-10-06, `scripts/publish-site.sh ../craterpult-site`, SSH remote), de a **GitHub Pages még nincs bekapcsolva** (Settings → Pages → Deploy from a branch → main / root) – addig a `https://danielarpadfalvi.github.io/craterpult-site/privacy.html` 404. A `craterpult.support@gmail.com` postafiók létezik.
 - Valódi telefonon még nem futott (haptika, státuszsor, splash, háttérbe tett app → szünet). Natív build csak GitHub Actionsben.
 - A 3. fejezet (ász botok) nehézsége nincs végigjátszva; kampány-egyensúly finomhangolás kell.
 - Ládák korlátozott arzenálú küldetésekben más fegyvert is adhatnak.
