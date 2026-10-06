@@ -92,10 +92,11 @@ Minden más típus: nem gyűjtjük. Nincs tracking → ATT (App Tracking Transpa
 A fizetési adatokat az Apple kezeli, ezeket **nem** kell deklarálni.
 
 **Privacy manifest:** a RevenueCat iOS SDK saját `PrivacyInfo.xcprivacy`-t hoz; a Capacitor pluginek
-(Preferences → `UserDefaults`, required-reason API) is. Ha az App Store Connect feltöltéskor
-„Missing API declaration” e-mailt küld, létre kell hozni az app saját
-`ios/App/App/PrivacyInfo.xcprivacy` fájlját (jelenleg nincs ilyen) a hiányzó okkal (UserDefaults:
-`CA92.1`).
+(Preferences → `UserDefaults`, required-reason API) is. Az app saját manifestje:
+`ios/App/App/PrivacyInfo.xcprivacy` (T8.2): nincs tracking, gyűjtött adat a fenti táblázat két sora
+(Purchase History, User ID – nem kötött, App Functionality), required-reason API: UserDefaults
+`CA92.1`. Ha az App Store Connect feltöltéskor „Missing API declaration” e-mailt küld, a hiányzó okot
+ide kell felvenni; ha a táblázat változik, a manifestet is frissíteni kell.
 
 ---
 

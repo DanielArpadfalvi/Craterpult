@@ -216,6 +216,10 @@ function Offer({ s, actions }: Props) {
             href={LEGAL_URLS.terms}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              actions.openLink(LEGAL_URLS.terms);
+            }}
             data-testid="paywall-terms"
           >
             {t('paywall.terms')}
@@ -225,6 +229,10 @@ function Offer({ s, actions }: Props) {
             href={LEGAL_URLS.privacy}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              actions.openLink(LEGAL_URLS.privacy);
+            }}
             data-testid="paywall-privacy"
           >
             {t('paywall.privacy')}

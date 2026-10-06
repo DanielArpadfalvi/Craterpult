@@ -97,6 +97,11 @@ test('settings: language, sound and haptics persist across a reload', async ({ p
   await expect(page.getByTestId('hud')).toBeVisible();
   await call(page, (a) => a.renderFrames(1));
   await expect(page.getByTestId('turn-time')).toHaveText('30 mp');
+  // Leave the bot match for the menu: a test that ends mid-match leaves the page drawing (and the
+  // bot thinking), which made the context teardown hang on a loaded machine.
+  await page.getByTestId('pause').click();
+  await page.getByTestId('quit').click();
+  await expect(page.getByTestId('menu')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -202,7 +207,7 @@ test('back button / Escape: closes, pauses, goes back, never leaves the menu', a
   const errors = await boot(page);
   const back = () => page.keyboard.press('Escape');
 
-  // Menu: nothing happens.
+  // Menu: the app is minimized natively (a no-op on the web), the menu stays.
   await back();
   await expect(page.getByTestId('menu')).toBeVisible();
 
@@ -259,6 +264,114 @@ test('back button / Escape: closes, pauses, goes back, never leaves the menu', a
   await back();
   await expect(page.getByTestId('menu')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('back on the hotseat hand-over screen pauses; resume returns to it', async ({ page }) => {
+  const errors = await boot(page);
+  const back = () => page.keyboard.press('Escape');
+  await call(page, (a) => a.stopRendering());
+  await page.getByTestId('start-hotseat').click();
+  await expect(page.getByTestId('pass')).toBeVisible();
+  await back();
+  await expect(page.getByTestId('pause-overlay')).toBeVisible();
+  await expect(page.getByTestId('pass')).toHaveCount(0);
+  // Resume (back again) goes back to the hand-over screen, not into the turn.
+  await back();
+  await expect(page.getByTestId('pass')).toBeVisible();
+  await expect(page.getByTestId('pause-overlay')).toHaveCount(0);
+  await page.getByTestId('pass-go').click();
+  await expect(page.getByTestId('pass')).toHaveCount(0);
+  await expect(page.getByTestId('hud')).toBeVisible();
+  // The wind gauge shows its strength and direction.
+  await call(page, (a) => a.renderFrames(1));
+  await expect(page.getByTestId('wind-value')).toHaveText(/^(0|←\d+|\d+→)$/);
+  // Quit from the pause menu opened over the hand-over screen.
+  await back();
+  await page.getByTestId('quit').click();
+  await expect(page.getByTestId('menu')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('settings About: privacy, support, restore purchases and version', async ({ page }) => {
+  // Record links instead of opening real tabs (the platform layer calls window.open).
+  await page.addInitScript(() => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    window.open = (url?: string | URL) => {
+      w.__opened.push(String(url));
+      return null;
+    };
+  });
+  const errors = await boot(page);
+  const opened = () => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened);
+  await page.getByTestId('open-settings').click();
+  const about = page.getByTestId('about');
+  await about.scrollIntoViewIfNeeded();
+  await expect(about).toBeVisible();
+  await expect(page.getByTestId('app-version')).toHaveText('Craterpult version 1.0.0');
+
+  await page.getByTestId('about-privacy').click();
+  await page.getByTestId('about-support').click();
+  expect(await opened()).toEqual([
+    'https://danielarpadfalvi.github.io/craterpult-site/privacy.html',
+    'https://danielarpadfalvi.github.io/craterpult-site/support.html',
+  ]);
+
+  // Restore: nothing to restore yet, then a purchase made on another device.
+  await page.getByTestId('settings-restore').click();
+  await expect(page.getByTestId('restore-status')).toContainText('No previous purchase');
+  await page.evaluate(
+    `(async (p) => { await p.ownedElsewhere(); })(window.__craterpult.purchases)`,
+  );
+  await page.getByTestId('settings-restore').click();
+  await expect(page.getByTestId('restore-status')).toHaveText('Full Version restored.');
+  await expect(page.getByTestId('paywall')).toHaveCount(0);
+  await page.getByTestId('settings-back').click();
+  await expect(page.getByTestId('open-full-version')).toHaveCount(0);
+  expect(await layoutProblems(page)).toEqual([]);
+
+  // Hungarian strings.
+  await page.getByTestId('open-settings').click();
+  await page.getByTestId('lang-hu').click();
+  await expect(page.getByTestId('about-privacy')).toContainText('Adatvédelmi tájékoztató');
+  await expect(page.getByTestId('app-version')).toHaveText('Craterpult 1.0.0 verzió');
+  expect(errors).toEqual([]);
+});
+
+test.describe('menu at 360x640', () => {
+  test.use({ viewport: { width: 360, height: 640 } });
+  for (const lang of ['en', 'hu'] as const) {
+    test(`buttons keep their captions inside, nothing overlaps (${lang})`, async ({ page }) => {
+      const errors = await boot(page, '&today=2026-10-06', lang);
+      const problems = await page.evaluate(() => {
+        const out: string[] = [];
+        const kids = Array.from(document.querySelectorAll<HTMLElement>('.menu > *'));
+        for (let i = 1; i < kids.length; i++) {
+          const a = kids[i - 1]!.getBoundingClientRect();
+          const b = kids[i]!.getBoundingClientRect();
+          if (a.bottom > b.top + 0.5)
+            out.push(`${kids[i - 1]!.className} overlaps ${kids[i]!.className}`);
+        }
+        for (const small of Array.from(
+          document.querySelectorAll<HTMLElement>('.menu .btn small'),
+        )) {
+          const r = small.getBoundingClientRect();
+          const btn = small.closest('.btn')!.getBoundingClientRect();
+          if (r.bottom > btn.bottom - 1 || r.top < btn.top)
+            out.push(`caption "${small.textContent}" leaves its button`);
+        }
+        return out;
+      });
+      expect(problems).toEqual([]);
+      // The menu scrolls instead of squeezing.
+      const scroll = await page.evaluate(() => {
+        const m = document.querySelector('.menu')!;
+        return m.scrollHeight > m.clientHeight;
+      });
+      expect(scroll).toBe(true);
+      expect(errors).toEqual([]);
+    });
+  }
 });
 
 for (const vp of [

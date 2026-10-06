@@ -110,6 +110,8 @@ export interface GameActions extends MonetizationActions {
   updateProfile(patch: Partial<Profile>): void;
   /** Wipe campaign, daily and stats (settings and team are kept). */
   resetProgress(): void;
+  /** Open a web page (privacy policy, support) in the browser. */
+  openLink(url: string): void;
   /** Hardware back button / Escape. */
   back(): void;
 }
@@ -241,6 +243,16 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   app.ticker.add((ticker) => {
     if (!renderingStopped) loop.frame(ticker.deltaMS);
   });
+  /**
+   * The canvas only draws while a match is on screen: the menus are opaque DOM, so an idle Pixi
+   * ticker would just burn battery redrawing the last island. Tests that drive frames by hand
+   * (`stopRendering` / `renderFrames`) keep it stopped, so a test page is never busy drawing.
+   */
+  const setDrawing = (on: boolean): void => {
+    if (on && !renderingStopped) app.ticker.start();
+    else app.ticker.stop();
+  };
+  setDrawing(false);
 
   const resize = (): void => {
     view.resize(viewport());
@@ -263,6 +275,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     daily?: { day: string; official: boolean };
   }
   let lastOptions: MatchOptions | null = null;
+  /** The pause overlay was opened over the hotseat hand-over screen (back button). */
+  let pausedOverPass = false;
 
   /** Is the team played by someone holding the phone? */
   const isHuman = (team: number): boolean => !match?.teams[team]?.bot;
@@ -280,6 +294,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   /** Default name of a team by its color ("Cyan Crew", …). */
   const colorName = (look: TeamLook | undefined, team: number): string =>
     t(`team.${look?.color ?? team}` as 'team.0');
+  /** The player's crew name in every mode: the custom name, else the color name (Team screen). */
+  const ownName = (): string => playerName(colorName(looksFor(1)[0], 0));
 
   /** Two-team setup for pass & play and quick matches. */
   function versusSetup(
@@ -297,7 +313,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           i === 1 && bot
             ? t(`bot.name.${bot}` as 'bot.name.1')
             : i === 0
-              ? playerName(colorName(lk[0], 0))
+              ? ownName()
               : colorName(lk[1], 1),
         units: Array.from({ length: size }, (_, k) => `${String.fromCharCode(65 + k)}${i + 1}`),
         bot: i === 1 && bot !== null,
@@ -309,7 +325,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   function missionNames(m: Mission): string[] {
     const lk = looksFor(m.enemies.length + 1);
     return [
-      playerName(t('team.player')),
+      ownName(),
       ...m.enemies.map((_, i) =>
         m.enemies.length === 1
           ? t(`bot.name.${m.bot}` as 'bot.name.1')
@@ -339,6 +355,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       looks: looks.map((l) => ({ color: TEAM_COLORS[l.color] as number, hat: l.hat })),
     });
     view.setMatch(match);
+    setDrawing(true);
     const u = activeUnit(match);
     cam = clampCamera(
       {
@@ -981,7 +998,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       const seed = dailySeed(day);
       startMatch({
         mode: 'daily',
-        setup: dailySetup(seed, [playerName(t('team.player')), t(`bot.name.${DAILY_BOT}`)]),
+        setup: dailySetup(seed, [ownName(), t(`bot.name.${DAILY_BOT}`)]),
         bot: DAILY_BOT,
         daily: { day, official },
       });
@@ -1037,17 +1054,25 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       introPending = false;
       bot = null;
       loop.pause();
+      setDrawing(false);
       view.clearAim();
       tally = null;
       store.set({ screen: 'menu', overlay: null, sheet: null, result: null, today: today() });
     },
     pause() {
-      if (store.get().overlay) return;
+      const overlay = store.get().overlay;
+      if (overlay && overlay !== 'pass') return;
+      // Over the hand-over screen the loop is already paused; resuming goes back to it.
+      pausedOverPass = overlay === 'pass';
       loop.pause();
       store.set({ overlay: 'pause' });
     },
     resume() {
       if (store.get().overlay !== 'pause') return;
+      if (pausedOverPass) {
+        store.set({ overlay: 'pass' });
+        return;
+      }
       store.set({ overlay: null });
       // Paused during the match-start tour: the tour's end resumes the simulation.
       if (!intro) loop.resume();
@@ -1082,6 +1107,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     resetProgress() {
       updateSave((d) => resetProgress(d));
     },
+    openLink(url) {
+      platform.links.open(url);
+    },
     back() {
       const st = store.get();
       switch (backAction(st)) {
@@ -1107,6 +1135,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
         case 'toMenu':
           actions.toMenu();
           break;
+        case 'minimize':
+          platform.lifecycle.minimizeApp();
+          break;
         case 'none':
           break;
       }
@@ -1114,7 +1145,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   };
   shop.gate(actions);
 
-  // Android back button / Escape: close, pause or go back; never exits from the menu.
+  // Android back button / Escape: close, pause or go back; minimizes (never exits) from the menu.
   platform.lifecycle.onBackButton(() => actions.back());
 
   // Mobile shell (T7.1): app sent to the background (or tab hidden) pauses a running match.
@@ -1179,6 +1210,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       unitScreen: () => activeUnitScreen(),
       stopRendering: () => {
         renderingStopped = true;
+        setDrawing(false);
       },
       renderFrames: (n: number) => {
         for (let i = 0; i < n; i++) {

@@ -31,6 +31,15 @@ describe('createWebLifecycle', () => {
     expect(pause).toHaveBeenCalledTimes(1);
   });
 
+  it('exit and minimize are no-ops on the web', () => {
+    const lc = createWebLifecycle(document);
+    disposers.push(lc.dispose);
+    expect(() => {
+      lc.exitApp();
+      lc.minimizeApp();
+    }).not.toThrow();
+  });
+
   it('treats Escape as back, invoking only the most recent handler', () => {
     const lc = createWebLifecycle(document);
     disposers.push(lc.dispose);

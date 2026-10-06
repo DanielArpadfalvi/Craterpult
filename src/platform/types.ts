@@ -25,8 +25,15 @@ export interface Lifecycle {
   onPause(listener: () => void): Unsubscribe;
   onResume(listener: () => void): Unsubscribe;
   onBackButton(listener: () => void): Unsubscribe;
-  /** Close the app (Android back on the main menu). No-op on the web. */
+  /** Close the app. No-op on the web. */
   exitApp(): void;
+  /** Send the app to the background (Android back on the main menu). No-op on the web / iOS. */
+  minimizeApp(): void;
+}
+
+/** Opens web pages (privacy policy, support) outside the game. */
+export interface ExternalLinks {
+  open(url: string): void;
 }
 
 /** `dark` = dark app background, i.e. light status bar content. */

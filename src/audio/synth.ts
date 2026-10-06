@@ -147,24 +147,3 @@ export function noise(v: Voice, t: number, o: NoiseOptions): number {
   cleanup(src, [src, f, g]);
   return end;
 }
-
-// --- Drum voices -------------------------------------------------------------------------
-
-export function kick(v: Voice, t: number, vel: number): number {
-  noise(v, t, { peak: 0.15 * vel, decay: 0.012, filter: 'lowpass', freq: 3000 });
-  return tone(v, t, { freq: 150, freqEnd: 42, glideTime: t + 0.12, peak: 0.9 * vel, decay: 0.28 });
-}
-
-export function snare(v: Voice, t: number, vel: number): number {
-  tone(v, t, { type: 'triangle', freq: 220, freqEnd: 160, peak: 0.3 * vel, decay: 0.09 });
-  return noise(v, t, { peak: 0.45 * vel, decay: 0.16, filter: 'bandpass', freq: 1800, q: 0.7 });
-}
-
-export function hat(v: Voice, t: number, vel: number, open = false): number {
-  return noise(v, t, {
-    peak: 0.3 * vel,
-    decay: open ? 0.14 : 0.035,
-    filter: 'highpass',
-    freq: open ? 7000 : 8500,
-  });
-}

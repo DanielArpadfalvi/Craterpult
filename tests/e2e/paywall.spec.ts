@@ -249,3 +249,33 @@ test('Campaign locks in Hungarian', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/locks-campaign-hu.png` });
   expect(errors).toEqual([]);
 });
+
+test.describe('paywall on a 360x640 phone', () => {
+  test.use({ viewport: { width: 360, height: 640 } });
+  for (const lang of ['en', 'hu'] as const) {
+    test(`buy, restore and the legal links are above the fold (${lang})`, async ({ page }) => {
+      const errors = await boot(page, '', lang);
+      await page.getByTestId('open-full-version').click();
+      await expect(page.getByTestId('paywall-privacy')).toBeVisible();
+      await settle(page);
+      const fold = await page.evaluate(() => {
+        const body = document.querySelector<HTMLElement>('.paywall-body')!;
+        const card = document.querySelector<HTMLElement>('.paywall-card')!.getBoundingClientRect();
+        const ids = ['paywall-buy', 'paywall-restore', 'paywall-terms', 'paywall-privacy'];
+        return {
+          scrollable: body.scrollHeight > body.clientHeight + 1,
+          below: ids.filter((id) => {
+            const r = document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect();
+            // The link text (the hit areas reach past it) sits inside the card and the screen.
+            const mid = r.top + r.height / 2;
+            return mid < card.top || mid > Math.min(card.bottom, window.innerHeight) - 8;
+          }),
+        };
+      });
+      expect(fold).toEqual({ scrollable: false, below: [] });
+      expect(await layoutProblems(page)).toEqual([]);
+      await page.screenshot({ path: `${SHOTS}/paywall-360-${lang}.png` });
+      expect(errors).toEqual([]);
+    });
+  }
+});

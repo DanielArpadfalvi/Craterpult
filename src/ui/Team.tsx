@@ -136,7 +136,9 @@ export function TeamScreen({ s, actions }: Props) {
               );
             })}
           </div>
-          <span class="row-hint">{t('team.hatHint')}</span>
+          <span class="row-hint" data-testid="hat-hint">
+            {hatNeedsFull('crown') && !s.fullVersion ? t('team.hatHint') : t('team.hatHintStars')}
+          </span>
         </div>
       </Section>
     </Page>

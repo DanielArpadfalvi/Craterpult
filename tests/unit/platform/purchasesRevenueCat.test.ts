@@ -232,7 +232,13 @@ describe('revenueCatApiKey / createPlatform selection', () => {
     const storage = createMemoryStorage();
     const overrides = {
       storage,
-      lifecycle: { onPause: vi.fn(), onResume: vi.fn(), onBackButton: vi.fn(), exitApp: vi.fn() },
+      lifecycle: {
+        onPause: vi.fn(),
+        onResume: vi.fn(),
+        onBackButton: vi.fn(),
+        exitApp: vi.fn(),
+        minimizeApp: vi.fn(),
+      },
       systemUi: {
         setStatusBarStyle: vi.fn(),
         hideStatusBar: vi.fn(),
