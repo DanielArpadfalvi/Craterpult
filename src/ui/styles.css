@@ -1,0 +1,480 @@
+:root {
+  --bg: #05040f;
+  --panel: rgba(14, 9, 34, 0.92);
+  --line: rgba(122, 60, 255, 0.45);
+  --text: #f2f0ff;
+  --dim: #9a94c4;
+  --accent: #3ef0ff;
+  --accent2: #ff4fd8;
+  --gold: #ffd23f;
+  --danger: #ff3b5c;
+  --team: #3ef0ff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app,
+#stage,
+#ui {
+  position: fixed;
+  inset: 0;
+}
+
+#ui {
+  pointer-events: none;
+}
+
+#ui > * {
+  pointer-events: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Menu */
+.menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 16px;
+  background: radial-gradient(120% 70% at 50% 100%, #2a1458 0%, #0b0720 55%, #05040f 100%);
+  pointer-events: auto;
+}
+
+.logo {
+  margin: 0;
+  font-size: clamp(40px, 13vw, 64px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  text-shadow:
+    0 0 12px rgba(62, 240, 255, 0.8),
+    0 0 32px rgba(62, 240, 255, 0.4);
+}
+
+.logo span {
+  color: var(--accent2);
+  text-shadow:
+    0 0 12px rgba(255, 79, 216, 0.8),
+    0 0 32px rgba(255, 79, 216, 0.4);
+}
+
+.tagline {
+  margin: 0 0 24px;
+  color: var(--dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: min(320px, 100%);
+  min-height: 52px;
+  padding: 12px 20px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: rgba(20, 12, 46, 0.8);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.btn small {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.btn-primary {
+  border-color: var(--team);
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--team) 45%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--team) 20%, transparent);
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+/* Gameplay overlay */
+.play {
+  position: absolute;
+  inset: 0;
+}
+
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(8px + var(--safe-top)) 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(5, 4, 15, 0.85), rgba(5, 4, 15, 0));
+  padding-bottom: 14px;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 13px;
+  letter-spacing: -2px;
+}
+
+.turn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.turn-name {
+  font-weight: 800;
+  color: var(--team);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--team) 60%, transparent);
+}
+
+.turn-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.turn-time.is-low {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.wind {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 96px;
+}
+
+.wind-label {
+  font-size: 11px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.wind-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(154, 148, 196, 0.2);
+}
+
+.wind-bar::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--dim);
+}
+
+.wind-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.wind-fill.is-right {
+  left: 50%;
+}
+
+.wind-fill.is-left {
+  right: 50%;
+}
+
+.teams {
+  display: flex;
+  gap: 8px;
+}
+
+.team {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.team.is-active {
+  opacity: 1;
+}
+
+.team-name {
+  color: var(--c);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-hp {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.team-bar {
+  grid-column: 1 / -1;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(154, 148, 196, 0.2);
+  overflow: hidden;
+}
+
+.team-fill {
+  display: block;
+  height: 100%;
+  background: var(--c);
+  box-shadow: 0 0 6px var(--c);
+  transition: width 0.4s ease;
+}
+
+.aim-hint {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(150px + var(--safe-bottom));
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+  text-shadow: 0 1px 4px #000;
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 10px calc(10px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(0deg, rgba(5, 4, 15, 0.9), rgba(5, 4, 15, 0));
+}
+
+.ctl-group {
+  display: flex;
+  gap: 8px;
+}
+
+.ctl {
+  flex: 1;
+  min-width: 44px;
+  height: 50px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--panel);
+  font-size: 20px;
+  touch-action: none;
+}
+
+.ctl:active:not(:disabled) {
+  border-color: var(--team);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--team) 50%, transparent);
+}
+
+.ctl:disabled {
+  opacity: 0.35;
+}
+
+.ctl-wide {
+  flex: 2;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ctl-weapon {
+  border-color: var(--team);
+}
+
+.wicon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sheets and overlays */
+.sheet-backdrop,
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background: rgba(5, 4, 15, 0.55);
+  display: flex;
+  justify-content: center;
+}
+
+.sheet-backdrop {
+  align-items: flex-end;
+}
+
+.overlay {
+  align-items: center;
+  padding: 16px;
+  background: rgba(5, 4, 15, 0.7);
+  backdrop-filter: blur(3px);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  padding: 16px 12px calc(16px + var(--safe-bottom));
+  border-radius: 18px 18px 0 0;
+  background: var(--panel);
+  border-top: 1.5px solid var(--team);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheet h2,
+.panel h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.weapon-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(20, 12, 46, 0.6);
+  text-align: left;
+}
+
+.weapon-row.is-selected {
+  border-color: var(--team);
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--team) 25%, transparent);
+}
+
+.weapon-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.weapon-text small {
+  color: var(--dim);
+}
+
+.panel {
+  width: min(360px, 100%);
+  padding: 24px 18px;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1.5px solid var(--team);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--team) 30%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.panel p {
+  margin: 0;
+  color: var(--dim);
+}
+
+.panel .btn {
+  width: 100%;
+}
+
+.team-chip {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--team);
+  box-shadow: 0 0 16px var(--team);
+}
+
+.win-title {
+  color: var(--team);
+  font-size: 24px !important;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--team) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aim-hint {
+    animation: none;
+  }
+}

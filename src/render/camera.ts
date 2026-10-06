@@ -26,10 +26,10 @@ export function zoomLimits(view: Viewport, world: WorldBounds): { min: number; m
   return { min, max: Math.max(min, 2.5) };
 }
 
-/** A comfortable default zoom: about 460 world px across the screen width. */
+/** A comfortable default zoom: about 320 world px across the screen width. */
 export function defaultZoom(view: Viewport, world: WorldBounds): number {
   const { min, max } = zoomLimits(view, world);
-  return Math.min(max, Math.max(min, view.width / 460));
+  return Math.min(max, Math.max(min, view.width / 320));
 }
 
 /** Keep the view inside the world (plus sky above); centers an axis that is fully visible. */

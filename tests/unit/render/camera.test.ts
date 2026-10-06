@@ -16,7 +16,7 @@ describe('camera', () => {
     const { min, max } = zoomLimits(view, world);
     expect(min).toBeCloseTo(390 / 1600);
     expect(max).toBe(2.5);
-    expect(defaultZoom(view, world)).toBeCloseTo(390 / 460);
+    expect(defaultZoom(view, world)).toBeCloseTo(390 / 320);
   });
 
   it('keeps the view inside the world', () => {

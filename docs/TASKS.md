@@ -13,9 +13,9 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] **T1.4 Turn/match state machine** – teams, turn timer, retreat time, damage resolution, death, win; event stream; input log + replay + state hash. AC: determinism tests.
 
 ## M2 – Playable prototype
-- [ ] **T2.1 Renderer** – terrain texture with dirty-rect updates, units, projectiles, camera follow + pinch/pan.
-- [ ] **T2.2 Input** – slingshot aiming, move/jump controls, fire.
-- [ ] **T2.3 Hotseat 2 players, 3 weapons** (bazooka, grenade, shotgun) + HUD. AC: e2e plays a full turn cycle; screenshots reviewed.
+- [x] **T2.1 Renderer** – terrain texture with dirty-rect updates, units, projectiles, camera follow + pinch/pan.
+- [x] **T2.2 Input** – slingshot aiming, move/jump controls, fire.
+- [x] **T2.3 Hotseat 2 players, 3 weapons** (bazooka, grenade, shotgun) + HUD. AC: e2e plays a full turn cycle; screenshots reviewed.
 
 ## M3 – Game feel & content
 - [ ] T3.1 Explosions, particles, shake, slow-mo, procedural audio, haptics
