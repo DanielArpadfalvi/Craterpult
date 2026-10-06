@@ -50,23 +50,53 @@ function SoundButton({ muted, actions }: { muted: boolean; actions: GameActions 
   );
 }
 
+const DIFFICULTIES = [1, 2, 3, 4, 5] as const;
+
 function Menu({ store, actions }: Props) {
+  const s = useStore(store);
   return (
     <div class="menu" data-testid="menu">
       <h1 class="logo">
         CRATER<span>PULT</span>
       </h1>
       <p class="tagline">{t('app.tagline')}</p>
+      <div class="bot-card">
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-testid="start-bot"
+          onClick={() => actions.startBotMatch(s.difficulty)}
+        >
+          <span>{t('menu.vsBot')}</span>
+          <small>{t(`difficulty.${s.difficulty}`)}</small>
+        </button>
+        <div class="chips" role="radiogroup" aria-label={t('menu.difficulty')}>
+          {DIFFICULTIES.map((d) => (
+            <button
+              type="button"
+              key={d}
+              role="radio"
+              aria-checked={d === s.difficulty}
+              aria-label={t(`difficulty.${d}`)}
+              class={`chip${d === s.difficulty ? ' is-on' : ''}`}
+              data-testid={`difficulty-${d}`}
+              onClick={() => actions.setDifficulty(d)}
+            >
+              {'★'.repeat(d)}
+            </button>
+          ))}
+        </div>
+      </div>
       <button
         type="button"
-        class="btn btn-primary"
+        class="btn btn-ghost"
         data-testid="start-hotseat"
         onClick={() => actions.startHotseat()}
       >
         <span>{t('menu.hotseat')}</span>
         <small>{t('menu.hotseatSub')}</small>
       </button>
-      <SoundButton muted={useStore(store).muted} actions={actions} />
+      <SoundButton muted={s.muted} actions={actions} />
       <button
         type="button"
         class="btn btn-ghost"
@@ -94,7 +124,11 @@ function Hud({ s, actions }: ViewProps) {
           ❚❚
         </button>
         <div class="turn">
-          <span class="turn-name">{t('hud.turnOf', { team: s.activeName })}</span>
+          <span class="turn-name">
+            {s.botThinking
+              ? t('hud.botThinking', { team: s.activeName })
+              : t('hud.turnOf', { team: s.activeName })}
+          </span>
           <span
             class={`turn-time${s.turnSeconds <= 5 && s.phase === 'aiming' ? ' is-low' : ''}`}
             data-testid="turn-time"

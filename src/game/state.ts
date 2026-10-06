@@ -48,6 +48,12 @@ export interface UiState {
   winner: number | null;
   /** Shows the aiming hint until the first shot of the session. */
   showAimHint: boolean;
+  /** Bot difficulty last chosen in the menu. */
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  /** The active team is a bot. */
+  botTurn: boolean;
+  /** The bot is still searching for its shot. */
+  botThinking: boolean;
   /** Sound and haptics off. */
   muted: boolean;
   /** Bumped when the language changes so the whole UI re-renders. */
@@ -74,5 +80,8 @@ export const INITIAL_UI: UiState = {
   winner: null,
   showAimHint: true,
   muted: false,
+  difficulty: 2,
+  botTurn: false,
+  botThinking: false,
   lang: 'en',
 };

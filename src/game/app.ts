@@ -2,6 +2,7 @@ import { Application } from 'pixi.js';
 import { GRAVITY, MAX_LAUNCH_SPEED } from '../core/constants';
 import { fxFloor, fxToFloat } from '../core/fixed';
 import { AudioEngine } from '../audio/engine';
+import { BotSearch, type Difficulty } from '../core/ai/bot';
 import { CRATE_HEALTH } from '../core/crates';
 import { activeUnit, canFire, canMove, createMatch, step } from '../core/match';
 import type { Command, MatchState, WeaponId } from '../core/types';
@@ -29,6 +30,7 @@ import { createStore, type Store } from './store';
 
 export interface GameActions {
   startHotseat(seed?: string): void;
+  startBotMatch(difficulty: Difficulty, seed?: string): void;
   move(dir: -1 | 0 | 1): void;
   jump(): void;
   backflip(): void;
@@ -45,6 +47,7 @@ export interface GameActions {
   pause(): void;
   resume(): void;
   toggleSound(): void;
+  setDifficulty(d: Difficulty): void;
 }
 
 export interface GameHandle {
@@ -90,7 +93,6 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   app.stage.addChild(view.root);
 
   let match: MatchState | null = null;
-  let lastSeed = 'craterpult';
   let prev: Snapshot | null = null;
   let pending: Command[] = [];
   let cam: Camera = { x: 800, y: 500, zoom: 1 };
@@ -116,6 +118,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
     onRender(alpha, dt) {
       if (!match) return;
+      if (!loop.isPaused) driveBot();
       updateCamera(dt);
       view.render(match, prev, alpha, dt, cam);
       drawAimOverlay();
@@ -142,13 +145,31 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   // Match flow
   // ---------------------------------------------------------------------------------------------
 
-  function startMatch(seed: string): void {
-    lastSeed = seed;
+  interface MatchOptions {
+    seed: string;
+    /** Bot difficulty of team 1, or null for pass & play. */
+    bot: Difficulty | null;
+  }
+  let lastOptions: MatchOptions = { seed: 'craterpult', bot: null };
+
+  /** Is the team played by someone holding the phone? */
+  const isHuman = (team: number): boolean => !match?.teams[team]?.bot;
+  /** Pass & play needs the hand-over screen; against a bot it would only get in the way. */
+  const needsPass = (): boolean => !!match && match.teams.filter((tm) => !tm.bot).length > 1;
+
+  function startMatch(opts: MatchOptions): void {
+    lastOptions = opts;
+    bot = null;
+    shotsFired = [0, 0];
     match = createMatch({
-      seed,
+      seed: opts.seed,
       teams: [0, 1].map((i) => ({
-        name: t(`team.${i}` as 'team.0'),
+        name:
+          i === 1 && opts.bot
+            ? t(`bot.name.${opts.bot}` as 'bot.name.1')
+            : t(`team.${i}` as 'team.0'),
         units: ['A', 'B', 'C'].map((c) => `${c}${i + 1}`),
+        bot: i === 1 && opts.bot !== null,
       })),
     });
     prev = null;
@@ -167,16 +188,103 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     );
     store.set({
       screen: 'playing',
-      overlay: 'pass',
+      overlay: needsPass() ? 'pass' : null,
       winner: null,
       weaponsOpen: false,
       weapon: 'bazooka',
+      botThinking: false,
     });
     publishHud();
     loop.reset();
-    loop.pause();
-    // Render one frame so the pass screen has the island behind it.
-    view.render(match, null, 1, 0, cam);
+    if (needsPass()) {
+      loop.pause();
+      // Render one frame so the pass screen has the island behind it.
+      view.render(match, null, 1, 0, cam);
+    } else {
+      loop.resume();
+      beginTurn();
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Bots: the search runs a few milliseconds per frame, then the bot "aims" visibly and fires.
+  // ---------------------------------------------------------------------------------------------
+
+  interface BotTurn {
+    search: BotSearch;
+    started: number;
+    /** Chosen shot and when it is fired (after showing the aim). */
+    chosen: Extract<Command, { t: 'fire' }> | null;
+    fireAt: number;
+    skip: boolean;
+  }
+  let bot: BotTurn | null = null;
+  /** Shots per team this match (test hook). */
+  let shotsFired: number[] = [];
+  const BOT_SLICE_MS = 6;
+  const BOT_MIN_THINK_MS = 900;
+  const BOT_MAX_THINK_MS = 2600;
+  const BOT_SHOW_AIM_MS = 650;
+
+  /** Called when a turn begins (after the pass screen, if any). */
+  function beginTurn(): void {
+    const s = match;
+    if (!s || s.phase !== 'aiming') return;
+    if (isHuman(s.activeTeam)) {
+      bot = null;
+      store.set({ botThinking: false });
+      return;
+    }
+    try {
+      bot = {
+        search: new BotSearch(s, lastOptions.bot ?? 3),
+        started: performance.now(),
+        chosen: null,
+        fireAt: 0,
+        skip: false,
+      };
+      store.set({ botThinking: true });
+    } catch {
+      pending.push({ t: 'skip' });
+    }
+  }
+
+  function driveBot(): void {
+    const s = match;
+    const b = bot;
+    if (!s || !b || store.get().overlay !== null) return;
+    if (s.phase !== 'aiming' || isHuman(s.activeTeam)) {
+      if (s.phase !== 'firing') bot = null;
+      return;
+    }
+    const now = performance.now();
+    if (!b.chosen && !b.skip) {
+      const until = now + BOT_SLICE_MS;
+      while (performance.now() < until && b.search.next());
+      const thought = now - b.started;
+      if ((b.search.done && thought >= BOT_MIN_THINK_MS) || thought >= BOT_MAX_THINK_MS) {
+        b.chosen = b.search.result();
+        b.skip = !b.chosen;
+        b.fireAt = now + BOT_SHOW_AIM_MS;
+        store.set({ botThinking: false });
+      }
+      return;
+    }
+    if (now < b.fireAt) return;
+    pending.push(b.skip || !b.chosen ? { t: 'skip' } : b.chosen);
+    if (b.chosen && b.search && WEAPONS[b.chosen.weapon].shots > 1) {
+      // Multi-shot weapons: fire again on the next aiming phase.
+      b.fireAt = now + 900;
+    } else {
+      bot = null;
+    }
+  }
+
+  /** The bot's chosen aim, shown as if a player were dragging. */
+  function botAim(): Aim | null {
+    const c = bot?.chosen;
+    if (!c || c.angle === undefined) return null;
+    return { angle: c.angle, power: c.power ?? 100 };
   }
 
   function handleEvents(s: MatchState): void {
@@ -189,13 +297,19 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (e.type === 'turnStart') {
         aim = null;
         manualCamUntil = 0;
-        store.set({ overlay: 'pass', weaponsOpen: false });
-        loop.pause();
+        if (needsPass()) {
+          store.set({ overlay: 'pass', weaponsOpen: false });
+          loop.pause();
+        } else {
+          store.set({ weaponsOpen: false });
+          beginTurn();
+        }
         publishHud();
       } else if (e.type === 'gameOver') {
         store.set({ overlay: 'over', winner: e.winner });
         publishHud();
       } else if (e.type === 'fired') {
+        shotsFired[s.activeTeam] = (shotsFired[s.activeTeam] ?? 0) + 1;
         store.set({ showAimHint: false });
         manualCamUntil = 0;
       } else if (e.type === 'crateCollected') {
@@ -233,8 +347,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           alive: members.filter((x) => x.alive && x.hp > 0).length,
         };
       }),
-      canMove: canMove(s) && !!u?.grounded && st.overlay === null,
-      canFire: canFire(s, st.weapon) && st.overlay === null,
+      canMove: canMove(s) && !!u?.grounded && st.overlay === null && isHuman(s.activeTeam),
+      canFire: canFire(s, st.weapon) && st.overlay === null && isHuman(s.activeTeam),
+      botTurn: !isHuman(s.activeTeam),
       weaponInfo: weaponInfo(s),
     });
   }
@@ -314,7 +429,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   function canAimNow(): boolean {
     const s = match;
-    return !!s && store.get().overlay === null && canFire(s, store.get().weapon);
+    return (
+      !!s && store.get().overlay === null && isHuman(s.activeTeam) && canFire(s, store.get().weapon)
+    );
   }
 
   app.canvas.addEventListener('pointerdown', (e) => {
@@ -436,20 +553,21 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   function drawAimOverlay(): void {
     const s = match;
     const u = s && activeUnit(s);
-    if (!s || !u || !aim) {
+    const shown = aim ?? (bot?.chosen && s?.phase === 'aiming' ? botAim() : null);
+    if (!s || !u || !shown) {
       view.clearAim();
       return;
     }
     const c = unitCenter(u);
     const color = teamColor(u.team);
-    const weapon = WEAPONS[store.get().weapon];
+    const weapon = WEAPONS[aim ? store.get().weapon : (bot?.chosen?.weapon ?? 'bazooka')];
     if (weapon.aim === 'direction')
-      view.drawSight(c.x, c.y, aim.angle, weapon.id === 'drill' ? weapon.range : 160, color);
+      view.drawSight(c.x, c.y, shown.angle, weapon.id === 'drill' ? weapon.range : 160, color);
     else {
       const speed = (fxToFloat(MAX_LAUNCH_SPEED) * weapon.speedPct) / 100;
       const gravity = (fxToFloat(GRAVITY) * weapon.gravityPct) / 100;
-      const pts = previewArc(aim, speed, gravity, 30, 3);
-      view.drawAim(pts, c.x, c.y, aim.power, color);
+      const pts = previewArc(shown, speed, gravity, 30, 3);
+      view.drawAim(pts, c.x, c.y, shown.power, color);
     }
   }
 
@@ -472,7 +590,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   const actions: GameActions = {
     startHotseat(seed) {
-      startMatch(seed ?? `hs-${Date.now().toString(36)}`);
+      startMatch({ seed: seed ?? `hs-${Date.now().toString(36)}`, bot: null });
+    },
+    startBotMatch(difficulty, seed) {
+      store.set({ difficulty });
+      startMatch({ seed: seed ?? `bot-${Date.now().toString(36)}`, bot: difficulty });
     },
     move(dir) {
       pending.push({ t: 'move', dir });
@@ -509,12 +631,14 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       store.set({ overlay: null });
       loop.resume();
       publishHud();
+      beginTurn();
     },
     rematch() {
-      startMatch(`${lastSeed}+`);
+      startMatch({ ...lastOptions, seed: `${lastOptions.seed}+` });
     },
     toMenu() {
       match = null;
+      bot = null;
       loop.pause();
       view.clearAim();
       store.set({ screen: 'menu', overlay: null });
@@ -528,6 +652,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (store.get().overlay !== 'pause') return;
       store.set({ overlay: null });
       loop.resume();
+    },
+    setDifficulty(d) {
+      store.set({ difficulty: d });
     },
     toggleSound() {
       const muted = !store.get().muted;
@@ -557,6 +684,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
               activeUnit: s.activeUnit,
               winner: s.winner,
               overlay: store.get().overlay,
+              shots: [...shotsFired],
               hp: s.units.map((u) => u.hp),
               alive: s.units.map((u) => u.alive),
               units: s.units.map((u) => ({ x: fxFloor(u.x), y: fxFloor(u.y), team: u.team })),
@@ -564,6 +692,16 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           : null;
       },
       command: (c: Command) => pending.push(c),
+      /** Finish the bot's search now and queue its shot (deterministic e2e). */
+      playBotTurn: (): boolean => {
+        const b = bot;
+        if (!b) return false;
+        const cmd = b.search.finish();
+        pending.push(cmd ?? { t: 'skip' });
+        bot = null;
+        store.set({ botThinking: false });
+        return true;
+      },
       stepTicks: (n: number) => loop.stepTicks(n),
       unitScreen: () => activeUnitScreen(),
       stopRendering: () => {

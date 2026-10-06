@@ -23,7 +23,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [ ] T3.3 Map themes + generator polish
 
 ## M4 – Bots
-- [ ] T4.1 Simulation-based AI in a Worker, 5 difficulties
+- [x] T4.1 Simulation-based AI, 5 difficulties (time-sliced on the main thread instead of a Worker)
 
 ## M5 – Modes
 - [ ] T5.1 Campaign (30 levels, objectives, stars)
