@@ -31,6 +31,7 @@ const FOCUS: Record<PaywallReason, FeatureId | null> = {
   mapStyle: 'maps',
   daily: 'daily',
   hats: 'hats',
+  online: null,
 };
 
 /** `' is-fv-locked'` when an item needs the Full Version the player does not own, else `''`. */

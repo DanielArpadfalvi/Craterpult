@@ -1,13 +1,15 @@
 import type { MapStyle } from '../core/mapgen';
 import type { Phase, WeaponId } from '../core/types';
+import { INITIAL_ONLINE, type OnlineUi } from './online';
 import { INITIAL_PAYWALL, type PaywallState } from './paywall';
 import { createDefaultSave, type SaveData } from './save';
 
 export type Screen = 'menu' | 'campaign' | 'playing';
-export type Overlay = 'pass' | 'over' | 'pause' | 'result' | null;
-export type GameMode = 'hotseat' | 'quick' | 'campaign' | 'daily';
+/** `waiting`: online, the opponent has not moved yet; `desync`: an online match broke. */
+export type Overlay = 'pass' | 'over' | 'pause' | 'result' | 'waiting' | 'desync' | null;
+export type GameMode = 'hotseat' | 'quick' | 'campaign' | 'daily' | 'online';
 /** Full-page sub-screens opened over the current screen (menu, or a paused match for settings). */
-export type Sheet = 'settings' | 'stats' | 'team' | 'quick' | null;
+export type Sheet = 'settings' | 'stats' | 'team' | 'quick' | 'online' | null;
 
 /** End-of-match summary for campaign and daily matches. */
 export type MatchResult =
@@ -117,6 +119,8 @@ export interface UiState {
   fullVersion: boolean;
   /** Full Version sheet and purchase flow. */
   paywall: PaywallState;
+  /** Online lobby and match status (M9, see src/game/online.ts). */
+  online: OnlineUi;
 }
 
 export const INITIAL_UI: UiState = {
@@ -155,4 +159,5 @@ export const INITIAL_UI: UiState = {
   today: '',
   fullVersion: false,
   paywall: INITIAL_PAYWALL,
+  online: INITIAL_ONLINE,
 };

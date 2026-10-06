@@ -16,13 +16,7 @@ export const FREE_MAP_STYLES: readonly MapStyle[] = ['hills', 'islands'];
 
 /** What a locked item asks for (picks the context line of the Full Version sheet). */
 export type PaywallReason =
-  | 'menu'
-  | 'campaign'
-  | 'difficulty'
-  | 'teamSize'
-  | 'mapStyle'
-  | 'daily'
-  | 'hats';
+  'menu' | 'campaign' | 'difficulty' | 'teamSize' | 'mapStyle' | 'daily' | 'hats' | 'online';
 
 export function chapterNeedsFull(chapter: number): boolean {
   return chapter > FREE_CHAPTERS;
@@ -43,6 +37,14 @@ export function mapStyleNeedsFull(style: MapStyle | 'random'): boolean {
 
 /** The Daily Challenge is a Full Version mode. */
 export function dailyNeedsFull(): boolean {
+  return true;
+}
+
+/**
+ * Creating online matches (M9) is a Full Version feature; joining a friend's invite is free so
+ * anyone can accept one.
+ */
+export function onlineCreateNeedsFull(): boolean {
   return true;
 }
 

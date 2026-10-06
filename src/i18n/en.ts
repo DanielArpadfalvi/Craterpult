@@ -1,4 +1,5 @@
 import { MISSIONS_EN } from './missions.en';
+import { ONLINE_EN } from './online.en';
 import { PAYWALL_EN } from './paywall.en';
 
 export const en = {
@@ -258,6 +259,7 @@ export const en = {
   'pause.settings': 'Settings',
   ...MISSIONS_EN,
   ...PAYWALL_EN,
+  ...ONLINE_EN,
 } as const;
 
 export type TranslationKey = keyof typeof en;

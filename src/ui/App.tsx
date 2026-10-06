@@ -6,6 +6,7 @@ import { t } from '../i18n';
 import { CampaignScreen } from './Campaign';
 import { WeaponIcon } from './icons';
 import { Menu, QuickScreen } from './Menu';
+import { DesyncOverlay, OnlineScreen, ReplayBar, WaitingOverlay } from './Online';
 import { PaywallSheet } from './Paywall';
 import { ResultOverlay } from './Result';
 import { SettingsScreen } from './Settings';
@@ -43,6 +44,7 @@ function Screens({ s, actions }: ViewProps) {
   return (
     <div class="play" style={{ '--team': s.activeColor }}>
       <Hud s={s} actions={actions} />
+      <ReplayBar s={s} actions={actions} />
       <AimHint s={s} />
       {s.toast && (
         <div class="toast" key={s.toast.id} data-testid="toast">
@@ -55,6 +57,8 @@ function Screens({ s, actions }: ViewProps) {
       {s.overlay === 'over' && <OverOverlay s={s} actions={actions} />}
       {s.overlay === 'pause' && <PauseOverlay s={s} actions={actions} />}
       {s.overlay === 'result' && <ResultOverlay s={s} actions={actions} />}
+      {s.overlay === 'waiting' && <WaitingOverlay s={s} actions={actions} />}
+      {s.overlay === 'desync' && <DesyncOverlay s={s} actions={actions} />}
       {sheet}
     </div>
   );
@@ -70,6 +74,8 @@ function SheetView({ s, actions }: ViewProps) {
       return <TeamScreen s={s} actions={actions} />;
     case 'quick':
       return <QuickScreen s={s} actions={actions} />;
+    case 'online':
+      return <OnlineScreen s={s} actions={actions} />;
     default:
       return null;
   }
@@ -371,7 +377,7 @@ function OverOverlay({ s, actions }: ViewProps) {
           data-testid="rematch"
           onClick={() => actions.rematch()}
         >
-          {t('over.rematch')}
+          {s.mode === 'online' ? t('online.toList') : t('over.rematch')}
         </button>
         <button
           type="button"
@@ -399,14 +405,16 @@ function PauseOverlay({ s, actions }: ViewProps) {
         >
           {t('pause.resume')}
         </button>
-        <button
-          type="button"
-          class="btn btn-ghost"
-          data-testid="restart"
-          onClick={() => actions.restart()}
-        >
-          {t('pause.restart')}
-        </button>
+        {s.mode !== 'online' && (
+          <button
+            type="button"
+            class="btn btn-ghost"
+            data-testid="restart"
+            onClick={() => actions.restart()}
+          >
+            {t('pause.restart')}
+          </button>
+        )}
         <button
           type="button"
           class="btn btn-ghost"
@@ -419,7 +427,13 @@ function PauseOverlay({ s, actions }: ViewProps) {
           type="button"
           class="btn btn-ghost"
           data-testid="quit"
-          onClick={() => (s.mode === 'campaign' ? actions.toMissions() : actions.toMenu())}
+          onClick={() =>
+            s.mode === 'campaign'
+              ? actions.toMissions()
+              : s.mode === 'online'
+                ? actions.onlineLeave()
+                : actions.toMenu()
+          }
         >
           {t('pause.quit')}
         </button>

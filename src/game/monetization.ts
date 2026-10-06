@@ -7,8 +7,9 @@ import {
   dailyNeedsFull,
   difficultyNeedsFull,
   mapStyleNeedsFull,
-  teamSizeNeedsFull,
+  onlineCreateNeedsFull,
   type PaywallReason,
+  teamSizeNeedsFull,
 } from './entitlement';
 import { createPaywall, type Paywall } from './paywall';
 import { hatNeedsFull, hatUnlocked } from './profile';
@@ -121,6 +122,7 @@ export function createMonetization({ store, platform, audio }: Deps): Monetizati
       nextMission,
       startDaily,
       updateProfile,
+      onlineCreate,
     } = a;
     /** Run `fn` now, or after unlocking when `locked` (the sheet opens with `reason`). */
     const guarded = (locked: boolean, reason: PaywallReason, fn: () => void): void => {
@@ -183,6 +185,11 @@ export function createMonetization({ store, platform, audio }: Deps): Monetizati
     a.startDaily = () => {
       if (dailyNeedsFull() && !full()) paywall.open('daily');
       else startDaily();
+    };
+    // Creating an online match needs the Full Version; joining a friend's invite stays free.
+    a.onlineCreate = async () => {
+      if (onlineCreateNeedsFull() && !full()) paywall.open('online', () => void onlineCreate());
+      else await onlineCreate();
     };
   }
 

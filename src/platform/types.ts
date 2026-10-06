@@ -29,6 +29,11 @@ export interface Lifecycle {
   exitApp(): void;
   /** Send the app to the background (Android back on the main menu). No-op on the web / iOS. */
   minimizeApp(): void;
+  /**
+   * The app was opened through a link (`craterpult://join/CODE`, online invites). A link that
+   * launched the app before anyone listened is delivered to the first listener.
+   */
+  onAppUrl(listener: (url: string) => void): Unsubscribe;
 }
 
 /** Opens web pages (privacy policy, support) outside the game. */

@@ -24,11 +24,19 @@ import {
 } from '../core/daily';
 import { activeUnit, canFire, canMove, createMatch, step, type MatchSetup } from '../core/match';
 import type { MapStyle } from '../core/mapgen';
+import { onlineSetup, type TurnRecord } from '../core/online';
 import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
 import { WEAPON_IDS, WEAPONS } from '../core/weapons';
-import { deviceLanguage, getLanguage, onLanguageChange, setLanguage, t } from '../i18n';
+import {
+  deviceLanguage,
+  getLanguage,
+  onLanguageChange,
+  setLanguage,
+  t,
+  type TranslationKey,
+} from '../i18n';
 import { aimFromDrag, MIN_FIRE_POWER, previewArc, type Aim } from '../input/aim';
 import {
   clampCamera,
@@ -49,6 +57,8 @@ import {
 import { EdgeIndicators, type ColoredMarker } from '../render/indicators';
 import { cssColor, TEAM_COLORS } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
+import { onlineEnv, selectOnline } from '../net/select';
+import type { OnlineMatch } from '../net/types';
 import { getPlatform } from '../platform';
 import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
@@ -72,8 +82,10 @@ import { createStore, type Store } from './store';
 import { hudPatch } from './hud';
 import { ownedMapStyles } from './entitlement';
 import { createMonetization, type MonetizationActions } from './monetization';
+import { createOnline, inviteCodeFromUrl, type OnlineActions, type OnlineUi } from './online';
+import { OnlinePlay } from './onlinePlay';
 
-export interface GameActions extends MonetizationActions {
+export interface GameActions extends MonetizationActions, OnlineActions {
   startHotseat(seed?: string): void;
   startBotMatch(difficulty: Difficulty, seed?: string): void;
   setTeamSize(n: number): void;
@@ -114,6 +126,10 @@ export interface GameActions extends MonetizationActions {
   openLink(url: string): void;
   /** Hardware back button / Escape. */
   back(): void;
+  /** Online: play the opponent's turn being watched at once. */
+  onlineSkipReplay(): void;
+  /** Leave an online match for the online screen (the match goes on). */
+  onlineLeave(): void;
 }
 
 export interface GameHandle {
@@ -122,6 +138,8 @@ export interface GameHandle {
 }
 
 const SKY = 320;
+/** How often a waiting online match asks for the opponent's turn. */
+const ONLINE_POLL_MS = 4000;
 /** Screen px around the active unit where a touch starts aiming instead of panning. */
 const AIM_GRAB_PX = 70;
 
@@ -157,6 +175,27 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   const platform = getPlatform();
   const haptics = platform.haptics;
   const shop = createMonetization({ store, platform, audio });
+  const params = new URLSearchParams(location.search);
+  // Online (M9): Supabase when the build has a backend; the in-browser mock in tests and web dev.
+  const onlineService = selectOnline({
+    native: platform.native,
+    ...onlineEnv(),
+    storage: platform.storage,
+    forceMock: testMode || params.has('mockOnline'),
+  });
+  const online = createOnline({
+    store,
+    service: onlineService,
+    storage: platform.storage,
+    playerName: () => ownName(),
+    seed: () => `on-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`,
+    play: (m, turns) => startOnline(m, turns),
+    share: (text) => platform.share.share(text),
+    toast: (text) => toast(text),
+    t: (key, vars) => t(key as TranslationKey, vars),
+  });
+  const patchOnline = (p: Partial<OnlineUi>): void =>
+    store.set({ online: { ...store.get().online, ...p } });
   // Browsers only start audio from a user gesture.
   window.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
   onLanguageChange(() => {
@@ -170,6 +209,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   app.stage.addChild(indicators.view);
 
   let match: MatchState | null = null;
+  /** The online match being played (M9), with its driver. */
+  let onlinePlay: OnlinePlay | null = null;
+  let onlineMatch: OnlineMatch | null = null;
+  let onlinePoll: ReturnType<typeof setInterval> | null = null;
   let prev: Snapshot | null = null;
   let pending: Command[] = [];
   let cam: Camera = { x: 800, y: 500, zoom: 1 };
@@ -215,10 +258,19 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   const loop = new GameLoop({
     onTick() {
       if (!match) return;
-      prev = snapshot(match);
-      const cmds = pending;
+      let cmds = pending;
       pending = [];
+      if (onlinePlay) {
+        const remote = onlinePlay.beforeStep(match, cmds);
+        if (!remote) {
+          waitForOpponent();
+          return;
+        }
+        cmds = remote;
+      }
+      prev = snapshot(match);
       step(match, cmds);
+      if (onlinePlay) afterOnlineStep(match);
       handleEvents(match);
     },
     onRender(alpha, dt) {
@@ -273,15 +325,19 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     missionId?: string;
     /** Daily challenge: the date played and whether this is the official attempt. */
     daily?: { day: string; official: boolean };
+    /** Online match: its driver and the turns stored so far. */
+    online?: { play: OnlinePlay; turns: TurnRecord[] };
   }
   let lastOptions: MatchOptions | null = null;
   /** The pause overlay was opened over the hotseat hand-over screen (back button). */
   let pausedOverPass = false;
 
   /** Is the team played by someone holding the phone? */
-  const isHuman = (team: number): boolean => !match?.teams[team]?.bot;
+  const isHuman = (team: number): boolean =>
+    onlinePlay ? onlinePlay.isLocal(team) : !match?.teams[team]?.bot;
   /** Pass & play needs the hand-over screen; against a bot it would only get in the way. */
-  const needsPass = (): boolean => !!match && match.teams.filter((tm) => !tm.bot).length > 1;
+  const needsPass = (): boolean =>
+    !!match && !onlinePlay && match.teams.filter((tm) => !tm.bot).length > 1;
 
   /** Colors and hats of a match's teams (team 0 = the player's customized crew). */
   let looks: TeamLook[] = [];
@@ -337,19 +393,27 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   function startMatch(opts: MatchOptions): void {
     lastOptions = opts;
     bot = null;
+    stopOnlinePoll();
+    onlinePlay = opts.online?.play ?? null;
     shotsFired = opts.setup.teams.map(() => 0);
-    // The turn time setting applies to every new match (and replays: it is part of the setup).
-    match = createMatch({
-      ...opts.setup,
-      config: { ...opts.setup.config, turnTicks: turnTicks(settings()) },
-    });
-    tally = createTally(match.activeTeam);
+    // The turn time setting applies to every new match (and replays: it is part of the setup);
+    // an online match is rebuilt from its stored turns with the agreed turn time.
+    match = onlinePlay
+      ? onlinePlay.start(opts.online?.turns ?? [])
+      : createMatch({
+          ...opts.setup,
+          config: { ...opts.setup.config, turnTicks: turnTicks(settings()) },
+        });
+    tally = createTally(match.activeTeam, onlinePlay?.myTeam ?? 0);
     intro = null;
-    introPending = true;
+    // The camera tour only opens a fresh match (an online one may resume many turns in).
+    introPending = !onlinePlay || (opts.online?.turns.length ?? 0) === 0;
     prev = null;
     pending = [];
     aim = null;
     looks = looksFor(match.teams.length);
+    // Online the player's own crew look goes to the team they hold.
+    if (onlinePlay?.myTeam === 1) looks = [looks[1], looks[0]] as TeamLook[];
     view.setOptions({
       reducedMotion: settings().reducedMotion,
       looks: looks.map((l) => ({ color: TEAM_COLORS[l.color] as number, hat: l.hat })),
@@ -381,7 +445,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     });
     publishHud();
     loop.reset();
-    if (needsPass()) {
+    if (onlinePlay?.desync) {
+      showDesync(onlinePlay.desync);
+    } else if (needsPass()) {
       loop.pause();
       // Render one frame so the pass screen has the island behind it.
       view.render(match, null, 1, 0, cam);
@@ -446,7 +512,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   function beginTurn(): void {
     const s = match;
     if (!s || s.phase !== 'aiming') return;
-    if (isHuman(s.activeTeam)) {
+    if (isHuman(s.activeTeam) || onlinePlay) {
       bot = null;
       store.set({ botThinking: false });
       return;
@@ -505,7 +571,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
 
   function handleEvents(s: MatchState): void {
     view.onEvents(s.events);
-    if (tally) tallyEvents(tally, s.events, s.units);
+    // Online matches span sessions, so only their result counts (no per-shot stats).
+    if (tally && !onlinePlay) tallyEvents(tally, s.events, s.units);
     const hapticsOn = settings().haptics;
     for (const f of feedbackFor(s.events, s)) {
       if (f.kind === 'sfx') audio.play(f.sfx, f.a);
@@ -552,14 +619,19 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     const mode = lastOptions?.mode;
     if (!t || !mode) return;
     tally = null;
-    updateSave((d) => {
-      recordMatch(d.stats, {
-        mode,
-        won: s.winner === 0,
-        vsBot: s.teams.some((tm) => tm.bot),
-        tally: t,
+    const record = (): void =>
+      void updateSave((d) => {
+        recordMatch(d.stats, {
+          mode,
+          won: s.winner === t.player,
+          vsBot: s.teams.some((tm) => tm.bot),
+          tally: t,
+        });
       });
-    });
+    // An online match can be watched to its end more than once: count it the first time only.
+    if (onlineMatch && mode === 'online')
+      void online.firstFinish(onlineMatch.id).then((first) => first && record());
+    else record();
   }
 
   /** Persist a finished campaign / daily match and describe it for the result screen. */
@@ -639,6 +711,102 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       weaponInfo: weaponInfo(s),
     });
     if (Object.keys(patch).length > 0) store.set(patch);
+    const replaying = !!onlinePlay?.replaying;
+    if (st.online.replaying !== replaying) patchOnline({ replaying });
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Online matches (M9): the opponent's turns are played back live, ours are recorded and sent.
+  // ---------------------------------------------------------------------------------------------
+
+  function startOnline(m: OnlineMatch, turns: TurnRecord[]): void {
+    const names = [0, 1].map((i) => m.names[i] ?? `#${i + 1}`);
+    const setup = onlineSetup(m.params, names);
+    onlineMatch = m;
+    patchOnline({
+      matchId: m.id,
+      opponent: names[1 - m.myTeam] ?? '',
+      desync: null,
+      replaying: false,
+    });
+    startMatch({
+      mode: 'online',
+      setup,
+      bot: null,
+      online: { play: new OnlinePlay(setup, m.myTeam), turns },
+    });
+    // The opponent resigned meanwhile: nothing more will arrive.
+    if (m.status === 'finished' && m.resigned !== null) showResigned(m);
+  }
+
+  function afterOnlineStep(s: MatchState): void {
+    const r = onlinePlay?.afterStep(s);
+    if (!r || !onlineMatch) return;
+    if (r.desync) showDesync(r.desync);
+    if (r.submit) void online.submit(onlineMatch.id, r.submit.turn, r.submit.outcome);
+  }
+
+  function showDesync(code: string): void {
+    loop.pause();
+    stopOnlinePoll();
+    store.set({ overlay: 'desync', weaponsOpen: false });
+    patchOnline({ desync: code, replaying: false });
+  }
+
+  function showResigned(m: OnlineMatch): void {
+    loop.pause();
+    stopOnlinePoll();
+    store.set({ overlay: 'over', winner: m.winner, weaponsOpen: false });
+  }
+
+  /** The opponent has not moved yet: pause, show the waiting card and poll for their turn. */
+  function waitForOpponent(): void {
+    if (store.get().overlay === 'waiting') return;
+    loop.pause();
+    store.set({ overlay: 'waiting', weaponsOpen: false });
+    patchOnline({ replaying: false });
+    stopOnlinePoll();
+    onlinePoll = setInterval(() => void pollOpponent(), ONLINE_POLL_MS);
+  }
+
+  let polling = false;
+  async function pollOpponent(): Promise<void> {
+    const play = onlinePlay;
+    const m = onlineMatch;
+    if (!play || !m || polling) return;
+    polling = true;
+    try {
+      const turns = await online.fetchTurns(m.id, play.nextIndex);
+      if (play !== onlinePlay || !match) return;
+      play.enqueue(turns);
+      if (!play.waiting(match)) {
+        stopOnlinePoll();
+        if (store.get().overlay === 'waiting') {
+          store.set({ overlay: null });
+          loop.resume();
+        }
+        return;
+      }
+      if (turns.length === 0) {
+        const latest = await onlineService.getMatch(m.id).catch(() => null);
+        if (
+          latest &&
+          play === onlinePlay &&
+          latest.status === 'finished' &&
+          latest.resigned !== null
+        ) {
+          onlineMatch = latest;
+          showResigned(latest);
+        }
+      }
+    } finally {
+      polling = false;
+    }
+  }
+
+  function stopOnlinePoll(): void {
+    if (onlinePoll) clearInterval(onlinePoll);
+    onlinePoll = null;
   }
 
   function weaponInfo(s: MatchState): UiState['weaponInfo'] {
@@ -1044,6 +1212,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     rematch() {
       const o = lastOptions;
       if (!o) return;
+      if (o.mode === 'online') {
+        actions.onlineLeave();
+        return;
+      }
       if (o.mode === 'campaign' && o.missionId) actions.startMission(o.missionId);
       else if (o.mode === 'daily') actions.startDaily();
       else startMatch({ ...o, setup: { ...o.setup, seed: `${o.setup.seed}+` } });
@@ -1053,6 +1225,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       intro = null;
       introPending = false;
       bot = null;
+      onlinePlay = null;
+      onlineMatch = null;
+      stopOnlinePoll();
+      patchOnline({ matchId: null, replaying: false, desync: null });
       loop.pause();
       setDrawing(false);
       view.clearAim();
@@ -1079,7 +1255,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
     restart() {
       const o = lastOptions;
-      if (!o || !match) return;
+      if (!o || !match || o.mode === 'online') return;
       if (o.mode === 'campaign' && o.missionId) actions.startMission(o.missionId);
       else if (o.mode === 'daily') actions.startDaily();
       else startMatch(o);
@@ -1130,6 +1306,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           break;
         case 'leaveMatch':
           if (st.mode === 'campaign') actions.toMissions();
+          else if (st.mode === 'online') actions.onlineLeave();
           else actions.toMenu();
           break;
         case 'toMenu':
@@ -1142,8 +1319,48 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           break;
       }
     },
+    ...online.actions,
+    onlineSkipReplay() {
+      const s = match;
+      if (!s || !onlinePlay?.replaying) return;
+      onlinePlay.fastForward(s, (st, cmds) => {
+        step(st, cmds);
+        handleEvents(st);
+      });
+      prev = null;
+      view.setMatch(s);
+      publishHud();
+      if (onlinePlay.desync) showDesync(onlinePlay.desync);
+    },
+    onlineLeave() {
+      actions.toMenu();
+      actions.openOnline();
+    },
   };
   shop.gate(actions);
+  // Register for "your turn" pushes once the player takes part in an online match.
+  for (const name of ['onlineCreate', 'onlineJoin'] as const) {
+    const inner = actions[name];
+    actions[name] = async () => {
+      await inner();
+      // Not after an error, nor while the Full Version sheet is asking first.
+      if (store.get().online.error || store.get().paywall.open) return;
+      const reg = await platform.push.register();
+      if (reg)
+        await onlineService.registerPushToken(reg.token, reg.platform).catch(() => undefined);
+    };
+  }
+  // Invite links (`craterpult://join/CODE`; `?join=CODE` on the web) and push taps.
+  const openInvite = (code: string): void => {
+    if (code && store.get().screen !== 'playing') actions.openOnline(code);
+  };
+  platform.lifecycle.onAppUrl((url) => openInvite(inviteCodeFromUrl(url)));
+  if (params.has('join')) openInvite(inviteCodeFromUrl(location.search));
+  platform.push.onOpen((data) => {
+    if (store.get().screen === 'playing') return;
+    if (data.matchId) void actions.onlineOpen(data.matchId);
+    else actions.openOnline();
+  });
 
   // Android back button / Escape: close, pause or go back; minimizes (never exits) from the menu.
   platform.lifecycle.onBackButton(() => actions.back());

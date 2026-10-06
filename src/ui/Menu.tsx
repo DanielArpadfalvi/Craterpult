@@ -64,15 +64,26 @@ export function Menu({ s, actions }: Props) {
         </small>
       </button>
       <DailyCard s={s} actions={actions} />
-      <button
-        type="button"
-        class="btn btn-ghost"
-        data-testid="start-hotseat"
-        onClick={() => actions.startHotseat()}
-      >
-        <span>{t('menu.hotseat')}</span>
-        <small>{t('menu.hotseatSub')}</small>
-      </button>
+      <div class="menu-pair">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          data-testid="open-online"
+          onClick={() => actions.openOnline()}
+        >
+          <span>{t('menu.online')}</span>
+          <small>{t('menu.onlineSub')}</small>
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost"
+          data-testid="start-hotseat"
+          onClick={() => actions.startHotseat()}
+        >
+          <span>{t('menu.hotseat')}</span>
+          <small>{t('menu.hotseatSub')}</small>
+        </button>
+      </div>
       <nav class="menu-tiles" aria-label={t('menu.settings')}>
         <MenuTile
           label={t('menu.team')}

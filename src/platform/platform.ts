@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import { createNativeHaptics, createWebHaptics, type Haptics } from './haptics';
 import { createNativeLifecycle, createWebLifecycle } from './lifecycle';
 import { createExternalLinks } from './links';
+import { createNativePush, createNoPush, type Push } from './push';
+import { createShare, type Share } from './share';
 import type { Purchases } from './purchases';
 import { revenueCatApiKey } from './purchasesRevenueCat';
 import { selectPurchases } from './purchasesSelect';
@@ -20,6 +22,10 @@ export interface Platform {
   readonly links: ExternalLinks;
   /** Full Version in-app purchase (RevenueCat on device, persisted mock on web). */
   readonly purchases: Purchases;
+  /** Online "your turn" notifications (native builds with `VITE_PUSH_ENABLED=1` only). */
+  readonly push: Push;
+  /** Share sheet / clipboard for online invites. */
+  readonly share: Share;
 }
 
 export interface CreatePlatformOptions {
@@ -56,7 +62,18 @@ export function createPlatform(options: CreatePlatformOptions = {}): Platform {
     systemUi: o.systemUi ?? (native ? createNativeSystemUI() : createWebSystemUI()),
     links: o.links ?? createExternalLinks(),
     purchases,
+    push:
+      o.push ??
+      (native && pushEnabled()
+        ? createNativePush(Capacitor.getPlatform() === 'ios' ? 'ios' : 'android')
+        : createNoPush()),
+    share: o.share ?? createShare(),
   };
+}
+
+/** Push needs a Firebase / APNs setup, so builds opt in (see docs/ONLINE.md). */
+function pushEnabled(): boolean {
+  return (import.meta.env as Record<string, string | undefined>).VITE_PUSH_ENABLED === '1';
 }
 
 let shared: Platform | null = null;

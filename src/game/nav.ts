@@ -29,6 +29,8 @@ export function backAction(
         return 'resume';
       case 'over':
       case 'result':
+      case 'waiting':
+      case 'desync':
         return 'leaveMatch';
       // Pause over the hand-over screen; resuming returns to it.
       case 'pass':

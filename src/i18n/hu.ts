@@ -1,5 +1,6 @@
 import type { TranslationKey } from './en';
 import { MISSIONS_HU } from './missions.hu';
+import { ONLINE_HU } from './online.hu';
 import { PAYWALL_HU } from './paywall.hu';
 
 export const hu: Record<TranslationKey, string> = {
@@ -260,4 +261,5 @@ export const hu: Record<TranslationKey, string> = {
   'pause.settings': 'Beállítások',
   ...MISSIONS_HU,
   ...PAYWALL_HU,
+  ...ONLINE_HU,
 };

@@ -2,11 +2,18 @@ import type { MatchEvent, Unit, WeaponId } from '../core/types';
 import { WEAPON_IDS, WEAPONS } from '../core/weapons';
 
 /**
- * Lifetime statistics of the player (team 0 in every mode: in pass & play that is the phone's
- * owner). Recorded from match events by pure helpers; only finished matches are committed.
+ * Lifetime statistics of the player (team 0 in every offline mode: in pass & play that is the
+ * phone's owner; online, the team the player holds). Recorded from match events by pure
+ * helpers; only finished matches are committed.
  */
-export type StatsMode = 'quick' | 'hotseat' | 'campaign' | 'daily';
-export const STATS_MODES: readonly StatsMode[] = ['quick', 'campaign', 'daily', 'hotseat'];
+export type StatsMode = 'quick' | 'hotseat' | 'campaign' | 'daily' | 'online';
+export const STATS_MODES: readonly StatsMode[] = [
+  'quick',
+  'campaign',
+  'daily',
+  'online',
+  'hotseat',
+];
 
 export interface ModeStats {
   played: number;
@@ -39,6 +46,7 @@ export function createStats(): Stats {
       hotseat: { played: 0, won: 0 },
       campaign: { played: 0, won: 0 },
       daily: { played: 0, won: 0 },
+      online: { played: 0, won: 0 },
     },
     kills: 0,
     unitsLost: 0,
@@ -82,6 +90,8 @@ export function sanitizeStats(raw: unknown): Stats {
 
 /** Per-match counters, fed tick by tick with `tallyEvents`. */
 export interface MatchTally {
+  /** The player's team. */
+  player: number;
   /** Team whose turn it is (follows `turnStart` events). */
   turnTeam: number;
   kills: number;
@@ -94,8 +104,9 @@ export interface MatchTally {
   shot: number | null;
 }
 
-export function createTally(firstTeam: number): MatchTally {
+export function createTally(firstTeam: number, player = 0): MatchTally {
   return {
+    player,
     turnTeam: firstTeam,
     kills: 0,
     unitsLost: 0,
@@ -106,8 +117,6 @@ export function createTally(firstTeam: number): MatchTally {
     shot: null,
   };
 }
-
-const PLAYER = 0;
 
 function closeShot(t: MatchTally): void {
   if (t.shot === null) return;
@@ -128,6 +137,7 @@ export function tallyEvents(
   units: readonly Pick<Unit, 'team'>[],
 ): MatchTally {
   const teamOf = (id: number): number => units[id]?.team ?? -1;
+  const { player } = t;
   for (const e of events) {
     switch (e.type) {
       case 'turnStart':
@@ -135,7 +145,7 @@ export function tallyEvents(
         t.turnTeam = e.team;
         break;
       case 'fired':
-        if (teamOf(e.unit) !== PLAYER) break;
+        if (teamOf(e.unit) !== player) break;
         closeShot(t);
         t.weapons[e.weapon] = (t.weapons[e.weapon] ?? 0) + 1;
         if (WEAPONS[e.weapon].damage > 0) {
@@ -144,13 +154,13 @@ export function tallyEvents(
         }
         break;
       case 'damage':
-        if (t.shot !== null && t.turnTeam === PLAYER && teamOf(e.unit) !== PLAYER)
+        if (t.shot !== null && t.turnTeam === player && teamOf(e.unit) !== player)
           t.shot += e.amount;
         break;
       case 'died':
       case 'drowned':
-        if (teamOf(e.unit) === PLAYER) t.unitsLost++;
-        else if (t.turnTeam === PLAYER) t.kills++;
+        if (teamOf(e.unit) === player) t.unitsLost++;
+        else if (t.turnTeam === player) t.kills++;
         break;
       case 'gameOver':
         closeShot(t);
