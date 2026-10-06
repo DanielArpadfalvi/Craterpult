@@ -33,13 +33,20 @@ import { aimFromDrag, MIN_FIRE_POWER, previewArc, type Aim } from '../input/aim'
 import {
   clampCamera,
   defaultZoom,
+  edgeMarker,
   followCamera,
+  panAt,
+  panDuration,
+  planIntroPan,
   screenToWorld,
   worldToScreen,
   type Camera,
+  type Insets,
+  type Point,
   type Viewport,
   type WorldBounds,
 } from '../render/camera';
+import { EdgeIndicators, type ColoredMarker } from '../render/indicators';
 import { cssColor, TEAM_COLORS } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
 import { getPlatform } from '../platform';
@@ -62,6 +69,7 @@ import { createTally, recordMatch, tallyEvents, type MatchTally } from './stats'
 import { GameLoop } from './loop';
 import { INITIAL_UI, type GameMode, type Sheet, type UiState } from './state';
 import { createStore, type Store } from './store';
+import { hudPatch } from './hud';
 import { ownedMapStyles } from './entitlement';
 import { createMonetization, type MonetizationActions } from './monetization';
 
@@ -155,6 +163,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   });
   const view = new WorldView();
   app.stage.addChild(view.root);
+  /** Screen-space arrows toward off-screen enemies (above the world, below the DOM HUD). */
+  const indicators = new EdgeIndicators();
+  app.stage.addChild(indicators.view);
 
   let match: MatchState | null = null;
   let prev: Snapshot | null = null;
@@ -164,6 +175,14 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   let aim: Aim | null = null;
   let hudAcc = 0;
   let renderingStopped = false;
+  /**
+   * Match-start camera tour over the enemies and back (render only: the simulation is paused while
+   * it runs, so ticks, commands and replays are unaffected). A touch on the map skips it. E2E runs
+   * (`?test`) skip it unless `&intro` is given, so their aiming gestures stay deterministic.
+   */
+  let intro: { points: Point[]; t: number; total: number } | null = null;
+  let introPending = false;
+  const introAllowed = !testMode || new URLSearchParams(location.search).has('intro');
 
   // Settings (persisted in the save) are pushed to the audio, language, renderer and page.
   const settingsTargets: SettingsTargets = {
@@ -203,9 +222,14 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     onRender(alpha, dt) {
       if (!match) return;
       if (!loop.isPaused) driveBot();
+      if (intro) {
+        intro.t += dt;
+        if (intro.t >= intro.total) endIntro();
+      }
       updateCamera(dt);
       view.render(match, prev, alpha, dt, cam);
       drawAimOverlay();
+      drawIndicators(dt);
       hudAcc += dt;
       if (hudAcc > 0.1) {
         hudAcc = 0;
@@ -304,6 +328,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       config: { ...opts.setup.config, turnTicks: turnTicks(settings()) },
     });
     tally = createTally(match.activeTeam);
+    intro = null;
+    introPending = true;
     prev = null;
     pending = [];
     aim = null;
@@ -345,7 +371,36 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     } else {
       loop.resume();
       beginTurn();
+      startIntro();
     }
+  }
+
+  /** Start the match-start camera tour (once per match, when play first begins). */
+  function startIntro(): void {
+    if (!introPending) return;
+    introPending = false;
+    const s = match;
+    const u = s && activeUnit(s);
+    if (!s || !u || !introAllowed || settings().reducedMotion) return;
+    // Whose enemies to show: the player holding the phone (the active team, or the first human).
+    const viewer = isHuman(s.activeTeam)
+      ? s.activeTeam
+      : (s.teams.find((tm) => !tm.bot)?.id ?? s.activeTeam);
+    const enemies = s.units
+      .filter((x) => x.alive && x.team !== viewer)
+      .map((x) => ({ x: fxToFloat(x.x), y: fxToFloat(x.y) - 40 }));
+    const points = planIntroPan({ x: cam.x, y: cam.y }, enemies, viewport().width / cam.zoom);
+    if (points.length === 0) return;
+    intro = { points, t: 0, total: panDuration(points) };
+    loop.pause();
+  }
+
+  function endIntro(): void {
+    if (!intro) return;
+    intro = null;
+    // A bot that started thinking under the tour gets its full think time afterwards.
+    if (bot && !bot.chosen) bot.started = performance.now();
+    if (match && store.get().overlay === null) loop.resume();
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -542,7 +597,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     if (!s) return;
     const u = activeUnit(s);
     const st = store.get();
-    store.set({
+    // Runs every 100 ms: only fields that really changed reach the store (no needless re-render).
+    const patch = hudPatch(st, {
       phase: s.phase,
       activeTeam: s.activeTeam,
       activeName: s.teams[s.activeTeam]?.name ?? '',
@@ -565,28 +621,23 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       botTurn: !isHuman(s.activeTeam),
       weaponInfo: weaponInfo(s),
     });
+    if (Object.keys(patch).length > 0) store.set(patch);
   }
 
   function weaponInfo(s: MatchState): UiState['weaponInfo'] {
     const team = s.teams[s.activeTeam];
     const turns = s.teamTurns[s.activeTeam] ?? 0;
-    const prevInfo = store.get().weaponInfo;
     const out: UiState['weaponInfo'] = {};
-    let same = true;
     for (const w of WEAPON_IDS) {
       const def = WEAPONS[w];
-      const info = {
+      out[w] = {
         ammo: team?.ammo[w] ?? 0,
         ok: canFire(s, w) || s.phase !== 'aiming',
         fromTurn: def.fromTurn,
         unlocked: turns >= def.fromTurn,
       };
-      const old = prevInfo[w];
-      if (!old || old.ammo !== info.ammo || old.ok !== info.ok || old.unlocked !== info.unlocked)
-        same = false;
-      out[w] = info;
     }
-    return same ? prevInfo : out;
+    return out;
   }
 
   let toastSeq = 0;
@@ -612,9 +663,55 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   }
 
   function updateCamera(dt: number): void {
+    if (intro) {
+      const p = panAt(intro.points, intro.t);
+      cam = clampCamera({ x: p.x, y: p.y, zoom: cam.zoom }, viewport(), bounds());
+      return;
+    }
     const target = performance.now() > manualCamUntil ? cameraTarget() : null;
     if (target) cam = followCamera(cam, clampCamera(target, viewport(), bounds()), dt, 4);
     cam = clampCamera(cam, viewport(), bounds());
+  }
+
+  /** Screen margins kept clear of the DOM HUD (top bar, bottom controls); re-measured twice a second. */
+  let insets: Insets = { top: 80, right: 6, bottom: 150, left: 6 };
+  let insetsAge = Infinity;
+  function hudInsets(dt: number): Insets {
+    insetsAge += dt;
+    if (insetsAge < 0.5) return insets;
+    insetsAge = 0;
+    const r = app.canvas.getBoundingClientRect();
+    const hud = document.querySelector('.hud')?.getBoundingClientRect();
+    const ctl = document.querySelector('.controls')?.getBoundingClientRect();
+    insets = {
+      top: Math.max(6, (hud ? hud.bottom - r.top : 0) + 10),
+      right: 6,
+      bottom: Math.max(6, (ctl ? r.bottom - ctl.top : 0) + 10),
+      left: 6,
+    };
+    return insets;
+  }
+
+  /** Edge arrows toward off-screen enemies while a human is aiming. */
+  function drawIndicators(dt: number): void {
+    const s = match;
+    if (!s || intro || s.phase !== 'aiming' || !isHuman(s.activeTeam) || store.get().overlay) {
+      indicators.draw([], dt);
+      return;
+    }
+    const v = viewport();
+    const margins = hudInsets(dt);
+    const markers: ColoredMarker[] = [];
+    for (const u of s.units) {
+      if (!u.alive || u.hp <= 0 || u.team === s.activeTeam) continue;
+      const c = unitCenter(u);
+      const m = edgeMarker(cam, v, c.x, c.y, margins);
+      if (m) {
+        const color = TEAM_COLORS[(looks[u.team]?.color ?? u.team) % TEAM_COLORS.length] as number;
+        markers.push({ ...m, color });
+      }
+    }
+    indicators.draw(markers, dt);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -648,6 +745,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   }
 
   app.canvas.addEventListener('pointerdown', (e) => {
+    // A touch during the match-start tour only skips it.
+    if (intro) {
+      endIntro();
+      return;
+    }
     app.canvas.setPointerCapture(e.pointerId);
     const p = local(e);
     pointers.set(e.pointerId, p);
@@ -920,6 +1022,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       loop.resume();
       publishHud();
       beginTurn();
+      startIntro();
     },
     rematch() {
       const o = lastOptions;
@@ -930,6 +1033,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
     toMenu() {
       match = null;
+      intro = null;
+      introPending = false;
       bot = null;
       loop.pause();
       view.clearAim();
@@ -944,7 +1049,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     resume() {
       if (store.get().overlay !== 'pause') return;
       store.set({ overlay: null });
-      loop.resume();
+      // Paused during the match-start tour: the tour's end resumes the simulation.
+      if (!intro) loop.resume();
     },
     restart() {
       const o = lastOptions;
@@ -1067,6 +1173,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
         store.set({ botThinking: false });
         return true;
       },
+      /** The match-start camera tour is running (only with `?test&intro`). */
+      introActive: () => intro !== null,
       stepTicks: (n: number) => loop.stepTicks(n),
       unitScreen: () => activeUnitScreen(),
       stopRendering: () => {
@@ -1078,6 +1186,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
           updateCamera(1);
           view.render(match, null, 1, 1 / 60, cam);
           drawAimOverlay();
+          drawIndicators(1 / 60);
         }
         publishHud();
         app.render();

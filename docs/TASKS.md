@@ -39,7 +39,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 ## M8 – Release 1.0
 - [x] T8.1 Store listing EN/HU, screenshot generator, privacy policy, QA pass
 - [ ] T8.2 QA fixes – UI & release hygiene: menu squeeze at 360×640, Settings "About" (privacy, support, restore, version), paywall legal links above the fold, back button (hotseat hand-over → pause, main menu → minimize), wind gauge value, weapon-sheet strip, consistent team name, listing hat wording, versions 1.0.0 (package.json, Android, iOS), hidden sourcemaps, dead code, iOS PrivacyInfo, meta.spec teardown flake
-- [ ] T8.3 QA fixes – gameplay: off-screen enemy indicators + match-start pan, campaign chapter 2–3 balance (sim-verified), HUD publish re-render throttling
+- [x] T8.3 QA fixes – gameplay: off-screen enemy indicators + match-start pan, campaign chapter 2–3 balance (sim-verified), HUD publish re-render throttling
 - [ ] T8.4 Owner: craterpult-site repo + Pages, support mailbox, RevenueCat project/product/secrets, sandbox purchase on device
 
 ## M9 – 1.1 Online

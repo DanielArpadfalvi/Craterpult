@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BotSearch } from '../../../src/core/ai/bot';
+import { BotSearch, botProfile } from '../../../src/core/ai/bot';
 import {
   CHAPTERS,
   chapterMissions,
@@ -124,7 +124,8 @@ describe('scoreMission', () => {
       const before = enemyHp();
       // Up to two player turns; the enemy just skips.
       for (let turn = 0; turn < 2 && enemyHp() === before; turn++) {
-        const cmd = new BotSearch(s, 5).finish();
+        const steady = { ...botProfile(5), angleNoise: 3, powerNoise: 1 };
+        const cmd = new BotSearch(s, 5, { profile: steady }).finish();
         step(s, cmd ? [cmd] : [{ t: 'skip' }]);
         for (let i = 0; i < 1500 && s.activeTeam === 0; i++)
           step(s, s.phase === 'aiming' && s.shotsLeft > 0 && cmd ? [cmd] : []);

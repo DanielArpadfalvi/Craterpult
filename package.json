@@ -17,7 +17,8 @@
     "store:check": "tsx scripts/store-listing-check.ts",
     "test:e2e": "playwright test",
     "store:screens": "playwright test -c playwright.store.config.ts",
-    "assets": "tsx scripts/make-assets.ts && capacitor-assets generate --android --ios --assetPath resources && tsx scripts/make-assets.ts --native-post"
+    "assets": "tsx scripts/make-assets.ts && capacitor-assets generate --android --ios --assetPath resources && tsx scripts/make-assets.ts --native-post",
+    "sim:campaign": "tsx scripts/sim-campaign.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

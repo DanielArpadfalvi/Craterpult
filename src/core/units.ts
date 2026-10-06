@@ -95,7 +95,11 @@ export function stepUnit(
   if (!u.alive) return;
   if (u.grounded) {
     if (!standsOn(t, fxFloor(u.x), fxFloor(u.y))) launchUnit(u, 0, 0);
-    else return;
+    else {
+      // Sudden-death water also rises over units standing still.
+      drownIfOut(t, u, waterLevel, events);
+      return;
+    }
   }
   u.vy += gravity;
   // Sub-step so that no axis moves more than one pixel per step.
@@ -131,6 +135,11 @@ export function stepUnit(
       }
     }
   }
+  drownIfOut(t, u, waterLevel, events);
+}
+
+/** Kill a unit whose middle is under water or that has left the world sideways. */
+function drownIfOut(t: Terrain, u: Unit, waterLevel: number, events: MatchEvent[]): void {
   const px = fxFloor(u.x);
   if (
     fxFloor(u.y) - (UNIT_HEIGHT >> 1) >= waterLevel ||

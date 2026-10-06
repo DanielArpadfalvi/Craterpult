@@ -8,7 +8,7 @@ import { unitCenter } from '../units';
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 
-interface Profile {
+export interface Profile {
   /** Angle step of the coarse grid (deci-degrees). */
   angleStep: number;
   powerStep: number;
@@ -22,6 +22,11 @@ interface Profile {
   caution: number;
 }
 
+/**
+ * Aim noise (T8.3): levels 4–5 used to aim within ±1° / ±0.3°, far beyond any human; the campaign
+ * sim (`npm run sim:campaign`) showed even a ±1° stand-in losing most of chapter 3. They now miss
+ * by up to ±2° / ±1.8° — still the sharpest shooters, still ordered by level.
+ */
 const PROFILES: Record<Difficulty, Profile> = {
   1: {
     angleStep: 300,
@@ -54,8 +59,8 @@ const PROFILES: Record<Difficulty, Profile> = {
     angleStep: 120,
     powerStep: 12,
     refine: 2,
-    angleNoise: 10,
-    powerNoise: 3,
+    angleNoise: 20,
+    powerNoise: 5,
     weapons: ['bazooka', 'grenade', 'shotgun', 'cluster', 'mortar', 'homing', 'punch', 'dynamite'],
     caution: 1.2,
   },
@@ -63,8 +68,8 @@ const PROFILES: Record<Difficulty, Profile> = {
     angleStep: 100,
     powerStep: 10,
     refine: 2,
-    angleNoise: 3,
-    powerNoise: 1,
+    angleNoise: 18,
+    powerNoise: 4,
     weapons: [
       'bazooka',
       'grenade',
@@ -79,6 +84,11 @@ const PROFILES: Record<Difficulty, Profile> = {
     caution: 1.5,
   },
 };
+
+/** A copy of a difficulty's search profile (tools and tests). */
+export function botProfile(d: Difficulty): Profile {
+  return { ...PROFILES[d], weapons: [...PROFILES[d].weapons] };
+}
 
 /** Weapons the search knows how to aim, tried when none of the profile's weapons can fire. */
 const FALLBACK_WEAPONS: WeaponId[] = [
@@ -103,6 +113,8 @@ interface Scored {
 /** Ticks a candidate shot is simulated for at most. */
 const EVAL_TICKS = 420;
 const KILL_BONUS = 60;
+/** Lowest score of a shot that hurts nobody (see `evaluate`: -0.001 per px of miss, capped). */
+const NEAR_MISS_FLOOR = -5;
 
 /**
  * Incremental shot search for the active unit: each `next()` simulates one candidate on a cloned
@@ -117,13 +129,20 @@ export class BotSearch {
   private readonly me: Unit;
   evaluated = 0;
 
+  /**
+   * @param tool Tools only (the game never passes it, so in-game shots are unaffected): `salt`
+   *   adds RNG salt so the campaign balance sim can run several aim-noise seeds on one mission;
+   *   `profile` replaces the difficulty's profile (the sim's fixed player stand-in).
+   */
   constructor(
     private readonly s: MatchState,
     readonly difficulty: Difficulty,
+    tool: { salt?: string; profile?: Profile } = {},
   ) {
+    const salt = tool.salt ?? '';
     // Copy: refinement narrows the grid steps of this search only.
-    this.profile = { ...PROFILES[difficulty] };
-    this.rng = createRng(`bot:${s.seed}:${s.turnNumber}:${s.tick}`);
+    this.profile = { ...(tool.profile ?? PROFILES[difficulty]) };
+    this.rng = createRng(`bot:${s.seed}:${s.turnNumber}:${s.tick}${salt ? `:${salt}` : ''}`);
     this.refinesLeft = this.profile.refine;
     const me = activeUnit(s);
     if (!me) throw new Error('BotSearch: no active unit');
@@ -151,14 +170,19 @@ export class BotSearch {
   }
 
   /** Run the whole search synchronously (tests / headless). */
-  finish(): FireCmd | null {
+  finish(allowMiss = false): FireCmd | null {
     while (this.next());
-    return this.result();
+    return this.result(allowMiss);
   }
 
-  /** The chosen shot with execution noise applied, or a skip when nothing helps. */
-  result(): FireCmd | null {
-    if (!this.best || this.best.score <= 0) return null;
+  /**
+   * The chosen shot with execution noise applied, or a skip when nothing helps. `allowMiss` fires
+   * the closest near miss instead of skipping (tools only: the balance sim's player stand-in keeps
+   * digging through cover like a human instead of passing forever; the game never sets it).
+   */
+  result(allowMiss = false): FireCmd | null {
+    if (!this.best) return null;
+    if (this.best.score <= 0 && !(allowMiss && this.best.score >= NEAR_MISS_FLOOR)) return null;
     const c = { ...this.best.cmd };
     const p = this.profile;
     if (c.angle !== undefined) c.angle += randInt(this.rng, 2 * p.angleNoise + 1) - p.angleNoise;

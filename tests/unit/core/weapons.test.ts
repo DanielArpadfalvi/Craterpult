@@ -224,4 +224,16 @@ describe('crates and sudden death', () => {
     expect(ev.some((e) => e.type === 'waterRise')).toBe(true);
     expect(s.waterLevel).toBe(before - 20);
   });
+
+  it('rising water drowns units standing still on the ground (regression: stalemates)', () => {
+    const s = flatMatch([[300], [900]], {
+      config: { suddenDeathTurn: 1, waterRise: 20, turnTicks: 30 },
+    });
+    expect(s.units.every((u) => u.grounded)).toBe(true);
+    // Water just below the feet: the next rise covers the units' middles.
+    s.waterLevel = GROUND_Y + 2;
+    const ev = run(s, () => s.phase === 'over', 600);
+    expect(ev.filter((e) => e.type === 'drowned')).toHaveLength(2);
+    expect(s.units.every((u) => !u.alive)).toBe(true);
+  });
 });
