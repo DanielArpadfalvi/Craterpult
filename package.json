@@ -14,13 +14,24 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "assets": "tsx scripts/make-assets.ts && capacitor-assets generate --android --ios --assetPath resources && tsx scripts/make-assets.ts --native-post"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "pixi.js": "^8.22.0",
     "preact": "^11.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@preact/preset-vite": "^2.10.6",

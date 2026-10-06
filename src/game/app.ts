@@ -42,7 +42,7 @@ import {
 } from '../render/camera';
 import { teamColor } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
-import { createWebHaptics } from '../platform/haptics';
+import { getPlatform } from '../platform';
 import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
 import { chapterUnlocked, missionUnlocked, recordMission } from './progress';
@@ -128,7 +128,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   onSaveChange((save) => store.set({ save }));
   const audio = new AudioEngine();
   audio.setMuted(store.get().muted);
-  const haptics = createWebHaptics();
+  const platform = getPlatform();
+  const haptics = platform.haptics;
   // Browsers only start audio from a user gesture.
   window.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
   onLanguageChange(() => {
@@ -861,6 +862,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       if (!muted) audio.play('tap');
     },
   };
+
+  // Mobile shell (T7.1): app sent to the background (or tab hidden) pauses a running match.
+  platform.lifecycle.onPause(() => {
+    if (match) actions.pause();
+  });
 
   if (testMode) {
     (window as unknown as { __craterpult: unknown }).__craterpult = {

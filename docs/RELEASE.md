@@ -1,0 +1,212 @@
+# Kiadás – natív buildek, aláírás, TestFlight, Play belső teszt
+
+Ez az útmutató azt írja le, mit kell **egyszer** beállítanod ahhoz, hogy a GitHub Actions aláírt
+Craterpult-buildeket készítsen és feltöltse őket. Mac nem kell. Titkos értékek (jelszavak, kulcsok)
+**soha** nem kerülnek a repóba – csak GitHub secretként.
+
+Alapadatok: app ID / bundle ID **`com.arpadfalvi.craterpult`**, név **Craterpult**, csak álló
+(portrait) mód, iOS-en **csak iPhone** (`TARGETED_DEVICE_FAMILY = 1`; iPaden kompatibilitási
+módban fut), háttérszín `#05040f`.
+
+## Mi fut magától?
+
+| Workflow | Mikor | Mit csinál | Kell hozzá secret? |
+|---|---|---|---|
+| **CI** (`ci.yml`) | minden push / PR | typecheck, lint, unit, build, e2e | nem |
+| **Android** `debug-apk` | minden push | debug APK → artifact + „android-debug-latest” pre-release | nem |
+| **Android** `release-aab` | kézi indítás, push a `main`-re, `v*` tag | aláírt AAB → artifact; opcionálisan feltöltés Google Playre | igen (lent) |
+| **iOS** `simulator` | minden push | szimulátoros build (aláírás nélkül) → artifact, bizonyítja, hogy fordul | nem |
+| **iOS** `release` | kézi indítás, push a `main`-re, `v*` tag | aláírt IPA → artifact; feltöltés TestFlightra | igen (lent) |
+
+Ha a secretek hiányoznak, a release jobok kimaradnak (a futás összefoglalójában erről egy „notice”
+üzenet szól), a többi job zöld marad.
+
+A debug APK telepítése teszteléshez: GitHub → *Releases* → **android-debug-latest** → az `.apk`
+letöltése a telefonon (az „ismeretlen források” engedélyezése kell). A debug buildek egy közös,
+nem titkos debug kulccsal (`android/app/debug.keystore`) vannak aláírva, így az újabb APK
+frissítésként települ a régire.
+
+> **Megjegyzés:** a felhős fejlesztői konténerből a `dl.google.com` nem érhető el, ezért natív
+> Android/iOS build csak a GitHub Actionsben fut. Helyben a `npx cap sync` működik (nem kell hozzá
+> hálózat), a Gradle/Xcode build nem.
+
+### Verziószámok
+
+- **Build-szám** (Android `versionCode`, iOS `CFBundleVersion`): mindig a workflow futásszáma
+  (`github.run_number`), így minden feltöltésnél nő.
+- **Megjelenő verzió** (Android `versionName`, iOS `CFBundleShortVersionString`): `v1.2.3` tagnél
+  `1.2.3`; egyébként Androidon `0.1.<futásszám>`, iOS-en `0.1.0`.
+- Helyi buildnél (env nélkül) `versionCode 1`, `versionName 0.1.0`
+  (`android/app/build.gradle`, `ios/App/App.xcodeproj`).
+
+### Secretek felvétele
+
+GitHub → a repó → *Settings → Secrets and variables → Actions → New repository secret*.
+(Vagy parancssorból: `gh secret set NÉV < fájl`.)
+
+| Secret | Platform | Leírás |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Android | a feltöltő kulcs (`.jks`) base64-ben (1.1) |
+| `ANDROID_KEYSTORE_PASSWORD` | Android | a keystore jelszava |
+| `ANDROID_KEY_ALIAS` | Android | a kulcs aliasa (pl. `upload`) |
+| `ANDROID_KEY_PASSWORD` | Android | a kulcs jelszava |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Android | opcionális: Google Play service account JSON (1.4) |
+| `ASC_KEY_ID` | iOS | App Store Connect API kulcs Key ID (2.3) |
+| `ASC_ISSUER_ID` | iOS | App Store Connect Issuer ID |
+| `ASC_KEY_P8` | iOS | az `AuthKey_….p8` base64-ben |
+| `APPLE_TEAM_ID` | iOS | Apple Developer Team ID (2.2) |
+
+---
+
+## 1. Android (Google Play)
+
+### 1.1 Feltöltő kulcs (upload key) létrehozása – egyszer
+Kell hozzá Java (JDK 17+), mert a `keytool` abban van.
+
+```bash
+keytool -genkeypair -v -keystore craterpult-upload.jks -alias upload \
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+- Kér egy jelszót (keystore jelszó) és néhány adatot (név, ország – bármi lehet).
+- **Mentsd el a `.jks` fájlt és a jelszót biztonságos helyre** (pl. jelszókezelő). Ha elveszik,
+  a Play Console-ban kérhető új upload key, de az macerás. A `.jks`-t **ne** commitold.
+
+Base64-be alakítás (egy sor szöveg lesz belőle):
+
+- Linux: `base64 -w0 craterpult-upload.jks > upload.b64`
+- macOS: `base64 -i craterpult-upload.jks | tr -d '\n' > upload.b64`
+- Windows (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("craterpult-upload.jks")) | Set-Content upload.b64`
+
+### 1.2 GitHub secretek
+| Név | Érték |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | az `upload.b64` tartalma |
+| `ANDROID_KEYSTORE_PASSWORD` | a keystore jelszava |
+| `ANDROID_KEY_ALIAS` | `upload` |
+| `ANDROID_KEY_PASSWORD` | a kulcs jelszava (a `keytool` alapból ugyanazt használja, mint a keystore-é) |
+
+A `android/app/build.gradle` ezeket környezeti változóból (CI) vagy `~/.gradle/gradle.properties`
+/ `-P` kapcsolóból (helyben) olvassa; nélkülük a `bundleRelease` aláíratlan AAB-t ad.
+
+### 1.3 Első AAB és a Play Console app
+1. GitHub → *Actions → Android → Run workflow* (a `play_upload` maradjon kikapcsolva).
+2. A futás végén az *Artifacts* részből töltsd le a `craterpult-release-aab` zipet, benne az `.aab`.
+3. Play Console → *Create app* (név: Craterpult, játék, ingyenes).
+4. *Testing → Internal testing → Create new release* → a Play App Signinget fogadd el
+   (alapértelmezett) → töltsd fel az `.aab`-t → mentés → *Review release → Start rollout*.
+   Az **első** feltöltésnek kézinek kell lennie: a Play API csak már létező appba tud feltölteni.
+5. *Internal testing → Testers*: hozz létre egy e-mail-listát (Gmail-címek), és küldd el a
+   tesztelőknek a „Join on the web” linket. Ők a Play Áruházból telepítik a buildet.
+
+### 1.4 Automatikus feltöltés (opcionális)
+1. Google Cloud Console → új projekt (pl. „craterpult-ci”).
+2. *APIs & Services → Library* → **Google Play Android Developer API** → *Enable*.
+3. *IAM & Admin → Service Accounts → Create service account* (pl. „play-upload”), szerepkör nem kell.
+4. A service account → *Keys → Add key → Create new key → JSON* → letöltődik egy `.json` fájl.
+5. Play Console → *Users and permissions → Invite new users* → a service account e-mail-címe →
+   *App permissions*: Craterpult → **Release to testing tracks** (és ha éleset is akarsz innen:
+   *Release to production*) → *Invite user*.
+6. GitHub secret: `PLAY_SERVICE_ACCOUNT_JSON` = a `.json` fájl **teljes tartalma**.
+
+Feltöltés: *Actions → Android → Run workflow* → `play_upload` ✓, `play_track`: `internal`,
+`play_status`: amíg az app még soha nem volt kiadva („draft app”), válaszd a **`draft`**-ot, és a
+kiadást a Console-ban indítsd el. Az első jóváhagyott kiadás után a `completed` közvetlenül kiadja.
+A `v*` tag (3. fejezet) automatikusan feltölt az `internal` sávra `completed` státusszal.
+
+### 1.5 Követelmények
+- `targetSdk`/`compileSdk` = 36 (Android 16), `minSdk` = 24 (`android/variables.gradle`) – megfelel
+  a Google Play 2026-os target API követelményének.
+- A Play az AAB-t a saját kulcsával írja alá (Play App Signing); a te kulcsod csak a feltöltéshez kell.
+
+---
+
+## 2. iOS (TestFlight / App Store)
+
+### 2.1 Bundle ID és app rekord – egyszer
+1. developer.apple.com → *Certificates, Identifiers & Profiles → Identifiers → +* → *App IDs → App*
+   → Description: Craterpult, **Explicit** Bundle ID: `com.arpadfalvi.craterpult` → *Register*.
+2. App Store Connect → *Apps → + → New App*: iOS, név: Craterpult, elsődleges nyelv, a fenti
+   Bundle ID, SKU: `craterpult`.
+
+### 2.2 Team ID
+developer.apple.com/account → *Membership details* → **Team ID** (10 karakter).
+
+### 2.3 App Store Connect API kulcs
+1. App Store Connect → *Users and Access → Integrations → App Store Connect API → Team Keys →
+   Generate API Key* (az első kulcsnál előbb *Request Access*, az Account Holder fogadja el).
+2. Név: „GitHub CI”, Access: **Admin**. (Az aláírás felhőben kezelt terjesztési tanúsítvánnyal
+   történik – ehhez Admin szerepkör kell; „App Manager”-rel „Cloud signing permission error” jön.)
+3. *Download API Key* → `AuthKey_XXXXXXXXXX.p8`. **Csak egyszer tölthető le**, mentsd el!
+4. Jegyezd fel a **Key ID**-t (a kulcs sorában) és az **Issuer ID**-t (a lista fölött).
+
+Base64 a `.p8`-ból: `base64 -w0 AuthKey_XXXXXXXXXX.p8 > asc.b64` (macOS-en
+`base64 -i … | tr -d '\n'`, Windows-on az 1.1-es PowerShell-sor a fájlnévvel).
+
+### 2.4 GitHub secretek
+| Név | Érték |
+|---|---|
+| `ASC_KEY_ID` | Key ID |
+| `ASC_ISSUER_ID` | Issuer ID (UUID) |
+| `ASC_KEY_P8` | az `asc.b64` tartalma |
+| `APPLE_TEAM_ID` | Team ID |
+
+Tanúsítványt, `.p12`-t, provisioning profile-t **nem** kell feltöltened: az `xcodebuild` az API
+kulccsal automatikusan létrehozza őket (a tanúsítvány az Apple felhőjében marad).
+
+### 2.5 Build TestFlightra
+1. GitHub → *Actions → iOS → Run workflow* (`testflight` ✓ – alapból be van pipálva).
+2. ~15–25 perc a build; utána az App Store Connect 5–30 percig „Processing” állapotban dolgozza fel.
+3. App Store Connect → Craterpult → *TestFlight*: megjelenik a build. Az export-megfelelőségi
+   kérdés nem jön elő (`ITSAppUsesNonExemptEncryption = NO` az Info.plistben).
+4. *Internal Testing → +* csoport → tesztelők hozzáadása. Ők az iPhone-on a **TestFlight** appból
+   telepítenek.
+
+A `main` ágra pusholt kód is készít aláírt IPA-t (artifactként), de **nem** tölti fel; feltöltés
+csak kézi indításnál (`testflight` ✓) vagy `v*` tagnél történik.
+
+### 2.6 Ha az iOS release job hibázik
+- *„Cloud signing permission error” / „No signing certificate”*: az API kulcs nem Admin, vagy az
+  Account Holdernek el kell fogadnia egy új Apple-szerződést.
+- *„No profiles for 'com.arpadfalvi.craterpult'”*: a Bundle ID nincs regisztrálva (2.1).
+- *„The bundle version must be higher…”*: ugyanazzal a build-számmal már volt feltöltés – indítsd
+  újra a workflow-t (új futásszám).
+
+---
+
+## 3. Kiadás verziótaggel (mindkét platform egyszerre)
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+- Android: aláírt AAB `versionName 1.0.0`-val, és (ha van `PLAY_SERVICE_ACCOUNT_JSON`) feltöltés
+  az `internal` sávra.
+- iOS: aláírt IPA `1.0.0 (futásszám)` verzióval, feltöltés TestFlightra.
+- Innen a Console-okban léptetheted tovább: Play → zárt teszt / éles; App Store → *Add for Review*.
+
+## 4. Ikon és splash újragenerálása
+
+A grafika kódból készül (`scripts/make-assets.ts`, SVG → Chromium → PNG; nincs külső bitkép):
+
+```bash
+npm run assets
+```
+
+Ez frissíti a `resources/` forrásképeket, a natív ikon/splash méreteket (`android/…/res`,
+`ios/App/App/Assets.xcassets`) és a store-képeket (`store/`: App Store ikon 1024, Play ikon 512,
+Play kiemelt kép 1024×500). A `capacitor-assets` újraformázza az
+`android/app/src/main/AndroidManifest.xml`-t – ezt érdemes visszaállítani (`git checkout`),
+tartalmilag nem változik. Újragenerálás után **nézd át a képeket**.
+
+## 5. Natív projekt karbantartása
+
+- Az `android/` és `ios/` mappa a gitben van (a Capacitor generálta, kézi módosításokkal:
+  álló mód, sötét háttér, overscroll tiltás a `MainActivity`-ben, aláírás a `build.gradle`-ben,
+  csak iPhone). Ne generáld újra `cap add`-dal.
+- Új Capacitor plugin után: `npm install …` → `npx vite build && npx cap sync` → commitold a
+  `capacitor.settings.gradle`, `capacitor.build.gradle` és `ios/App/CapApp-SPM/Package.swift`
+  változásait.
+- Natív API-t csak a `src/platform/` modulok importálhatnak (`@capacitor/*`, ESLint-szabály);
+  minden szolgáltatásnak van web/mock megvalósítása (`createPlatform`).

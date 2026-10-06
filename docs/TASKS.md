@@ -33,7 +33,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [ ] T6.1 Menu, settings, pause, save (versioned), stats, team customization, EN/HU
 
 ## M7 – Mobile shell & monetization
-- [ ] T7.1 Capacitor android/ios, icon/splash from code, Android/iOS CI
+- [x] T7.1 Capacitor android/ios, icon/splash from code, Android/iOS CI – Capacitor 8 shell (com.arpadfalvi.craterpult, portrait, iPhone-only), `npm run assets`, platform layer (storage/haptics/lifecycle/system UI), android.yml + ios.yml, docs/RELEASE.md; native builds verified only in GitHub Actions
 - [ ] T7.2 RevenueCat full-version paywall + restore
 
 ## M8 – Release 1.0
