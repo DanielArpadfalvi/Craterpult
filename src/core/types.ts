@@ -1,3 +1,4 @@
+import type { MapStyle } from './mapgen';
 import type { RngState } from './rng';
 import type { Rect, Terrain } from './terrain';
 
@@ -164,6 +165,8 @@ export interface MatchState {
   tick: number;
   rng: RngState;
   terrain: Terrain;
+  /** Landscape family the terrain was generated with (picks the render theme; absent = hills). */
+  mapStyle?: MapStyle;
   /** World y (pixels) of the water surface; anything below drowns. */
   waterLevel: number;
   /** Wind strength −10…10 (integer). */

@@ -20,7 +20,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 ## M3 – Game feel & content
 - [x] T3.1 Explosions, particles, shake, procedural audio, haptics (slow-mo: later polish)
 - [x] T3.2 16 weapons, crates, sudden death
-- [ ] T3.3 Map themes + generator polish
+- [x] T3.3 Map themes + generator polish (per-style render themes: sky, parallax silhouettes, terrain/water palettes, ambient life)
 
 ## M4 – Bots
 - [x] T4.1 Simulation-based AI, 5 difficulties (time-sliced on the main thread instead of a Worker)
