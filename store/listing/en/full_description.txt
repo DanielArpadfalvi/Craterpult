@@ -26,7 +26,7 @@ BOTS THAT REALLY PLAY
 The bots use the same physics you do and try out their shots before they fire. Rookies miss in style; Aces read the wind and rarely give you a second chance.
 
 MAKE IT YOURS
-• Name your team, pick its colour and earn hats with campaign stars
+• Name your team and pick its colour; with the Full Version, campaign stars also unlock bonus hats (crown, horns, halo)
 • Stats for wins, knockouts, accuracy, biggest shot and favourite weapon
 • Adjustable turn time and aim-preview length
 • Colour-blind friendly: teams can wear distinct shapes, not just colours
@@ -37,7 +37,7 @@ MAKE IT YOURS
 FAIR, ONE-TIME UNLOCK
 Craterpult is free to download, and the free version is a complete game: the whole first campaign chapter (10 missions), quick matches against Rookie and Easy bots with teams of up to three on the Hills and Islands maps, and pass & play with no limits.
 
-One optional purchase, the Full Version, unlocks everything else for good: chapters 2 and 3 (20 more missions), bot levels 3 to 5, four-strong teams, the Daily Challenge, the Cavern, Towers and Flats maps, and cosmetic hats. No subscriptions, no ads, no energy, nothing to grind for with real money. Already bought it? Tap Full Version on the main menu, then Restore purchases.
+One optional purchase, the Full Version, unlocks everything else for good: chapters 2 and 3 (20 more missions), bot levels 3 to 5, four-strong teams, the Daily Challenge, the Cavern, Towers and Flats maps, and the cosmetic hats you earn with campaign stars. No subscriptions, no ads, no energy, nothing to grind for with real money. Already bought it? Tap Restore purchases in Settings or on the Full Version screen.
 
 YOUR DATA STAYS ON YOUR DEVICE
 No account, no tracking, no analytics. Your progress is saved on your device, and every mode plays fully offline.

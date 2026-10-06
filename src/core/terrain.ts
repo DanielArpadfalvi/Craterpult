@@ -40,11 +40,6 @@ export function isSolid(t: Terrain, x: number, y: number): boolean {
   return materialAt(t, x, y) !== AIR;
 }
 
-export function setMaterial(t: Terrain, x: number, y: number, m: number): void {
-  if (x < 0 || x >= t.width || y < 0 || y >= t.height) return;
-  t.cells[y * t.width + x] = m;
-}
-
 /** Fill a disc with a material (level design / girders). */
 export function fillCircle(t: Terrain, cx: number, cy: number, r: number, m: number): void {
   const r2 = r * r;
@@ -121,10 +116,4 @@ export function surfaceNormal(t: Terrain, x: number, y: number, r = 4): { nx: nu
     }
   }
   return { nx, ny };
-}
-
-/** Topmost solid y in column x at or below `fromY`, or `height` if none. */
-export function groundBelow(t: Terrain, x: number, fromY: number): number {
-  for (let y = Math.max(0, fromY); y < t.height; y++) if (isSolid(t, x, y)) return y;
-  return t.height;
 }

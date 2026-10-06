@@ -12,3 +12,4 @@ tests/e2e/__screenshots__
 
 # Store screenshots are large and regenerable (npm run store:screens)
 store/screenshots/
+sourcemaps

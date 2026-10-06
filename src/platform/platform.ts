@@ -1,12 +1,13 @@
 import { Capacitor } from '@capacitor/core';
 import { createNativeHaptics, createWebHaptics, type Haptics } from './haptics';
 import { createNativeLifecycle, createWebLifecycle } from './lifecycle';
+import { createExternalLinks } from './links';
 import type { Purchases } from './purchases';
 import { revenueCatApiKey } from './purchasesRevenueCat';
 import { selectPurchases } from './purchasesSelect';
 import { createNativeStorage, createWebStorage } from './storage';
 import { createNativeSystemUI, createWebSystemUI } from './systemUi';
-import type { Lifecycle, Storage, SystemUI } from './types';
+import type { ExternalLinks, Lifecycle, Storage, SystemUI } from './types';
 
 export interface Platform {
   /** True when running inside the Capacitor iOS/Android shell. */
@@ -15,6 +16,8 @@ export interface Platform {
   readonly haptics: Haptics;
   readonly lifecycle: Lifecycle;
   readonly systemUi: SystemUI;
+  /** Opens the privacy policy / support pages in the browser. */
+  readonly links: ExternalLinks;
   /** Full Version in-app purchase (RevenueCat on device, persisted mock on web). */
   readonly purchases: Purchases;
 }
@@ -51,6 +54,7 @@ export function createPlatform(options: CreatePlatformOptions = {}): Platform {
     haptics: o.haptics ?? (native ? createNativeHaptics() : createWebHaptics()),
     lifecycle: o.lifecycle ?? (native ? createNativeLifecycle() : createWebLifecycle()),
     systemUi: o.systemUi ?? (native ? createNativeSystemUI() : createWebSystemUI()),
+    links: o.links ?? createExternalLinks(),
     purchases,
   };
 }

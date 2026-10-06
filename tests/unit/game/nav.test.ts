@@ -21,15 +21,15 @@ describe('back button', () => {
     expect(backAction({ ...base, overlay: 'pause' })).toBe('resume');
   });
 
-  it('leaves finished matches and waits on the hand-over screen', () => {
+  it('leaves finished matches and pauses on the hand-over screen', () => {
     expect(backAction({ ...base, overlay: 'result' })).toBe('leaveMatch');
     expect(backAction({ ...base, overlay: 'over' })).toBe('leaveMatch');
-    expect(backAction({ ...base, overlay: 'pass' })).toBe('none');
+    expect(backAction({ ...base, overlay: 'pass' })).toBe('pause');
   });
 
-  it('goes back from sub-screens and does nothing on the main menu', () => {
+  it('goes back from sub-screens and minimizes the app on the main menu', () => {
     expect(backAction({ ...base, screen: 'campaign', missionIntro: 'c1-01' })).toBe('closeIntro');
     expect(backAction({ ...base, screen: 'campaign' })).toBe('toMenu');
-    expect(backAction({ ...base, screen: 'menu' })).toBe('none');
+    expect(backAction({ ...base, screen: 'menu' })).toBe('minimize');
   });
 });

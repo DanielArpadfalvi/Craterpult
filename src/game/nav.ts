@@ -2,8 +2,9 @@ import type { UiState } from './state';
 
 /**
  * What the hardware back button (Android) or Escape does: close the topmost sheet / panel /
- * dialog, pause a running match, or go back from a sub-screen. On the main menu it does nothing
- * (it never exits the app).
+ * dialog, pause a running match (also from the hand-over screen), or go back from a sub-screen.
+ * On the main menu it sends the app to the background (minimize, never exit: progress and the
+ * WebView state survive).
  */
 export type BackAction =
   | 'closeSheet'
@@ -13,6 +14,7 @@ export type BackAction =
   | 'resume'
   | 'leaveMatch'
   | 'toMenu'
+  | 'minimize'
   | 'none';
 
 export function backAction(
@@ -28,11 +30,12 @@ export function backAction(
       case 'over':
       case 'result':
         return 'leaveMatch';
-      // The hand-over screen waits for the next player; back would only confuse it.
+      // Pause over the hand-over screen; resuming returns to it.
       case 'pass':
-        return 'none';
+        return 'pause';
     }
   }
   if (s.screen === 'campaign') return s.missionIntro ? 'closeIntro' : 'toMenu';
+  if (s.screen === 'menu') return 'minimize';
   return 'none';
 }

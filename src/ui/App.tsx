@@ -12,6 +12,7 @@ import { SettingsScreen } from './Settings';
 import { StatsScreen } from './Stats';
 import { TeamScreen } from './Team';
 import { useStore } from './useStore';
+import { windText } from './wind';
 
 interface Props {
   store: Store<UiState>;
@@ -101,8 +102,13 @@ function Hud({ s, actions }: ViewProps) {
             {s.phase === 'aiming' ? t('hud.time', { seconds: s.turnSeconds }) : '…'}
           </span>
         </div>
-        <div class="wind" data-testid="wind" aria-label={`${t('hud.wind')} ${s.wind}`}>
-          <span class="wind-label">{t('hud.wind')}</span>
+        <div class="wind" data-testid="wind" aria-label={`${t('hud.wind')} ${windText(s.wind)}`}>
+          <span class="wind-label">
+            {t('hud.wind')}{' '}
+            <b class="wind-value" data-testid="wind-value">
+              {windText(s.wind)}
+            </b>
+          </span>
           <span class="wind-bar">
             <span
               class={`wind-fill ${s.wind < 0 ? 'is-left' : 'is-right'}`}

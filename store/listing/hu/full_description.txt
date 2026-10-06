@@ -26,7 +26,7 @@ BOTOK, AMELYEK TÉNYLEG JÁTSZANAK
 A botok ugyanazzal a fizikával dolgoznak, mint te, és lövés előtt kipróbálják, hová menne a lövedék. Az Újoncok látványosan mellélőnek, az Ászok viszont olvasnak a szélben, és ritkán adnak második esélyt.
 
 A TE CSAPATOD
-• Adj nevet a csapatodnak, válassz színt, és szerezz kalapokat a hadjárat csillagaival
+• Adj nevet a csapatodnak, és válassz színt; a Teljes verzióban a hadjárat csillagai díszkalapokat is feloldanak (korona, szarvak, glória)
 • Statisztika: győzelmek, kiütések, találati arány, legnagyobb lövés, kedvenc fegyver
 • Állítható körídő és célzási előnézet
 • Színtévesztőknek is: a csapatokat nemcsak szín, hanem forma is megkülönbözteti
@@ -37,7 +37,7 @@ A TE CSAPATOD
 TISZTESSÉGES, EGYSZERI FELOLDÁS
 A Craterpult ingyenesen letölthető, és már az ingyenes változat is teljes értékű játék: a hadjárat egész első fejezete (10 küldetés), gyors meccsek Újonc és Könnyű botok ellen, csapatonként legfeljebb három kráterrel a Dombok és a Szigetek pályán, valamint korlátlan játék egy telefonon.
 
-Egyetlen, nem kötelező vásárlással – ez a Teljes verzió – minden más végleg a tiéd: a 2. és 3. fejezet (további 20 küldetés), a 3–5. szintű botok, a négyfős csapatok, a Napi kihívás, a Barlang, a Tornyok és a Síkság pálya, valamint a díszkalapok. Nincs előfizetés, nincs reklám, nincs energia, nincs pénzért vett előny. Már megvetted? Koppints a főmenüben a Teljes verzió gombra, majd a „Vásárlások visszaállítása” lehetőségre.
+Egyetlen, nem kötelező vásárlással – ez a Teljes verzió – minden más végleg a tiéd: a 2. és 3. fejezet (további 20 küldetés), a 3–5. szintű botok, a négyfős csapatok, a Napi kihívás, a Barlang, a Tornyok és a Síkság pálya, valamint a hadjárat csillagaival megszerezhető díszkalapok. Nincs előfizetés, nincs reklám, nincs energia, nincs pénzért vett előny. Már megvetted? Koppints a „Vásárlások visszaállítása” lehetőségre a Beállításokban vagy a Teljes verzió képernyőn.
 
 AZ ADATAID NÁLAD MARADNAK
 Nincs fiók, nincs követés, nincs analitika. Az előrehaladásod a készülékeden tárolódik, és minden mód teljesen offline is működik.

@@ -31,6 +31,7 @@ export function createWebLifecycle(
     onResume: (l) => resume.add(l),
     onBackButton: (l) => back.add(l),
     exitApp: () => undefined,
+    minimizeApp: () => undefined,
     dispose: () => {
       doc?.removeEventListener('visibilitychange', onVisibility);
       doc?.removeEventListener('keydown', onKey);
@@ -58,5 +59,7 @@ export function createNativeLifecycle(): Lifecycle {
     onResume: (l) => resume.add(l),
     onBackButton: (l) => back.add(l),
     exitApp: () => void App.exitApp(),
+    // Android only; the iOS plugin rejects (there is no back button there anyway).
+    minimizeApp: () => void App.minimizeApp().catch(() => undefined),
   };
 }

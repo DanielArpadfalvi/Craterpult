@@ -36,7 +36,7 @@ frissítésként települ a régire.
   (`github.run_number`), így minden feltöltésnél nő.
 - **Megjelenő verzió** (Android `versionName`, iOS `CFBundleShortVersionString`): `v1.2.3` tagnél
   `1.2.3`; egyébként Androidon `0.1.<futásszám>`, iOS-en `0.1.0`.
-- Helyi buildnél (env nélkül) `versionCode 1`, `versionName 0.1.0`
+- Helyi buildnél (env nélkül) `versionCode 1`, `versionName 1.0.0` (iOS `MARKETING_VERSION = 1.0.0`)
   (`android/app/build.gradle`, `ios/App/App.xcodeproj`).
 
 ### Secretek felvétele
