@@ -3,7 +3,7 @@ import type { ONLINE_EN } from './online.en';
 /** Online (aszinkron többjátékos, M9) szövegek, a `hu`-ba olvasztva. */
 export const ONLINE_HU: Record<keyof typeof ONLINE_EN, string> = {
   'menu.online': 'Online',
-  'menu.onlineSub': 'Barát ellen, körönként',
+  'menu.onlineSub': 'Barát ellen',
   'mode.online': 'Online',
   'online.title': 'Online',
   'online.new': 'Új meccs',

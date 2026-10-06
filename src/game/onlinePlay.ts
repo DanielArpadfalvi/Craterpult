@@ -67,7 +67,7 @@ export class OnlinePlay {
 
   /** The opponent's turn is being played back. */
   get replaying(): boolean {
-    return this.remote !== null;
+    return this.remote !== null || this.queue.length > 0;
   }
 
   /** Is `team` the one holding this phone? */

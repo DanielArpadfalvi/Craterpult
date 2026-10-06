@@ -1,7 +1,7 @@
 /** Online (async multiplayer, M9) strings, merged into `en`. */
 export const ONLINE_EN = {
   'menu.online': 'Online',
-  'menu.onlineSub': 'Play a friend, turn by turn',
+  'menu.onlineSub': 'Play a friend',
   'mode.online': 'Online',
   'online.title': 'Online',
   'online.new': 'New match',

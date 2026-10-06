@@ -261,7 +261,7 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
         disabled={s.online.busy}
         onClick={() => void actions.onlineOpen(m.id)}
       >
-        <strong>{name ? t('online.vs', { name }) : t('online.open')}</strong>
+        <strong>{name ? t('online.vs', { name }) : t('online.code')}</strong>
         <small>{statusText(m)}</small>
       </button>
       {m.status === 'active' && (
