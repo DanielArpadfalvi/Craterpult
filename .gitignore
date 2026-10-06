@@ -9,3 +9,6 @@ tests/e2e/__screenshots__
 .DS_Store
 .claude/worktrees/
 
+
+# Store screenshots are large and regenerable (npm run store:screens)
+store/screenshots/

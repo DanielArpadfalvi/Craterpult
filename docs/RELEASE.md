@@ -246,10 +246,10 @@ figyelmeztetést (`::warning`) írnak ki.
 - Play Console: **fizetési profil** (merchant account) létrehozva, és legalább egy AAB feltöltve
   (belső tesztre is elég, lásd 1.3) – addig a Console nem enged terméket létrehozni.
 - **Adatvédelmi oldal**: a `https://danielarpadfalvi.github.io/craterpult-site/privacy.html`
-  (`src/game/links.ts`) **még nincs közzétéve** – a kiadás előtt létre kell hozni a
-  `DanielArpadfalvi/craterpult-site` publikus repót GitHub Pages-szel (a Swaplight-site mintájára),
-  különben a fizetőfal és a store-adatlap adatvédelmi linkje 404-et ad (T8.1). A felhasználási
-  feltételek az Apple szabványos EULA-ja (`TERMS_URL`).
+  (`src/game/links.ts`) forrása kész (`docs/site/`), de **közzé kell tenni** a
+  `DanielArpadfalvi/craterpult-site` publikus repóban GitHub Pages-szel (7.3), különben a
+  fizetőfal és a store-adatlap adatvédelmi linkje 404-et ad. A felhasználási feltételek az Apple
+  szabványos EULA-ja (`TERMS_URL`).
 
 ### 6.2 Termék létrehozása a boltokban
 **App Store Connect** → Craterpult → *Monetization → In-App Purchases → +*
@@ -289,8 +289,10 @@ RevenueCat → *Project settings → API keys* → a két **Public app-specific 
   (`@revenuecat/purchases-capacitor`) a gradle fájlokban regisztrálva (`cap sync`).
 - **iOS**: StoreKithez nem kell külön képesség; a plugin Swift Package-ként kerül be
   (`ios/App/CapApp-SPM/Package.swift`).
-- **Adatvédelmi címkék**: App Store *App Privacy* → „Purchases / Purchase History” – nem
-  kapcsolódik a felhasználóhoz, nem követésre (RevenueCat); Play *Data safety* → „Purchase history”.
+- **Adatvédelmi címkék**: App Store *App Privacy* → „Purchases / Purchase History” és
+  „Identifiers / User ID” – nem kapcsolódik a felhasználóhoz, nem követésre (RevenueCat); Play
+  *Data safety* → „Purchase history” és „Device or other IDs”. Pontos válaszok:
+  `docs/store-privacy-answers.md`.
 
 ### 6.6 Teszt vásárlás
 - **iOS**: TestFlight-buildek sandboxban vásárolnak. Visszaállítás teszt: app törlése, újratelepítés
@@ -303,3 +305,75 @@ RevenueCat → *Project settings → API keys* → a két **Public app-specific 
   `window.__craterpult.purchases` hookok: `setNextOutcome('cancelled' | 'pending' | 'failed')`,
   `setLatency(ms)`, `ownedElsewhere()` (visszaállításhoz), `setFullVersion(bool)`; a `?test&full`
   paraméter eleve megvett Teljes verzióval indít.
+
+---
+
+## 7. Store-anyagok: szövegek, kérdőívek, weboldal
+
+### 7.1 Hol mi van?
+
+| Anyag | Hely | Mire kell |
+|---|---|---|
+| Adatlap-szövegek EN + HU (név, alcím, rövid/hosszú leírás, kulcsszavak, promóciós szöveg, 1.0 újdonságok) | `store/listing/{en,hu}/*.txt` | App Store Connect → *App Information* / verzió oldala; Play Console → *Main store listing* (+ *Translations*: magyar) |
+| Kategória, korhatár, célközönség javaslat | `store/listing/README.md` | mindkét konzol |
+| Data safety / App Privacy / IARC / Apple Age Rating válaszok | `docs/store-privacy-answers.md` | Play → *App content*; App Store → *App Privacy*, *Age Rating* |
+| Ikon, Play kiemelt kép, screenshotok | `store/` (4. fejezet és a screenshot-generátor) | mindkét konzol |
+| Weboldal: főoldal, adatvédelem, támogatás (EN + HU) | `docs/site/` (forrás) → `DanielArpadfalvi/craterpult-site` | GitHub Pages (külön publikus repó) |
+| Teendőlisták a tulajdonosnak | `docs/PLAY-STORE-CHECKLIST.md`, `docs/APP-STORE-CHECKLIST.md` | – |
+
+Várható korhatár: rajzfilmes (cartoon) erőszak miatt App Store **13+**, IARC **PEGI 7 / ESRB E10+**
+(részletek és indoklás: `docs/store-privacy-answers.md` 3–5.).
+
+### 7.2 Szövegek ellenőrzése
+
+```bash
+npm run store:check     # hosszkorlátok, egysoros mezők, kulcsszó-formátum, tiltott szavak
+```
+
+A `npm run check` is futtatja. Tiltott: más játékok nevei / védjegyek, és az ingyenes változatra
+a „Lite”, „Demo”, „Trial” (és „demó”, „próbaverzió”) – az ingyenes változat teljes értékű játék.
+Ha a Teljes verzió tartalma (`src/game/entitlement.ts`) változik, a `full_description.txt`, a
+`docs/site/support.html` GYIK-ja és a 6. fejezet listája is frissítendő.
+
+### 7.3 Weboldal (adatvédelmi nyilatkozat, támogatás) – külön publikus repó
+
+A játék repója privát, ezért a weboldal **nem innen** megy ki: a GitHub Pages a külön, **publikus**
+`DanielArpadfalvi/craterpult-site` repóból szolgálja ki (alapértelmezett ág gyökeréből). Az oldal
+forrása (*source of truth*) itt a `docs/site/` mappa – mindig itt szerkeszd, és innen másold át.
+
+Egyszeri beállítás (**a repó még nem létezik**):
+
+1. Hozd létre a publikus `DanielArpadfalvi/craterpult-site` repót (üresen, `main` ággal).
+2. A site repóban: *Settings → Pages → Build and deployment → Source:* **Deploy from a branch**,
+   ág: **main**, mappa: **/ (root)** → *Save*. Pár perc múlva él a
+   `https://danielarpadfalvi.github.io/craterpult-site/` cím.
+
+Frissítés (minden `docs/site/` módosítás után):
+
+```bash
+git clone https://github.com/DanielArpadfalvi/craterpult-site.git ../craterpult-site   # első alkalommal
+scripts/publish-site.sh ../craterpult-site       # docs/site/* → a site repó gyökerébe (+ .nojekyll)
+cd ../craterpult-site
+git add -A && git commit -m "Update site" && git push
+```
+
+A szkript csak másol (a célmappa `.git`-jét és a `docs/site`-ban nem szereplő saját fájlokat,
+pl. `README.md`, `CNAME`, nem törli); a commit és a push kézi lépés. Windows-on Git Bash-ből futtasd.
+
+Támogatási cím: **craterpult.support@gmail.com** (a `docs/site/*.html`-ben és a kérdőív-válaszokban;
+a postafiókot létre kell hozni). Ha megvannak a store-linkek, írd be őket az `index.html`
+jelvényeibe.
+
+URL-ek (a site repó nevéből; ha átnevezed a repót vagy saját domaint állítasz be, ezek is
+változnak – és a `src/game/links.ts` `SITE` konstansa is):
+
+| Mező | URL |
+|---|---|
+| Privacy Policy URL (App Store *App Privacy*, Play *App content → Privacy policy*) | `https://danielarpadfalvi.github.io/craterpult-site/privacy.html` |
+| Support URL (App Store) | `https://danielarpadfalvi.github.io/craterpult-site/support.html` |
+| Marketing URL (App Store, opcionális) / Website (Play) | `https://danielarpadfalvi.github.io/craterpult-site/` |
+| Contact e-mail (Play *Store settings*) | `craterpult.support@gmail.com` |
+
+Az oldal a böngésző nyelve szerint vált magyarra/angolra; fixen: `privacy.html?lang=hu`.
+A játékon belüli adatvédelmi link (Teljes verzió ablak: `src/game/links.ts` `PRIVACY_URL`)
+ugyanezt az URL-t használja.

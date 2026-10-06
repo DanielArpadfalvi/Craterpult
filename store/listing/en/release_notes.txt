@@ -1,0 +1,5 @@
+Welcome to Craterpult 1.0!
+• Turn-based artillery on fully destructible terrain, with 16 weapons
+• 30 campaign missions, quick matches against bots on five levels, pass & play and a Daily Challenge
+• One-time Full Version unlock: no ads, no energy, plays fully offline
+Thanks for playing. Lob. Blast. Outlast.

@@ -1,0 +1,1 @@
+turn based,strategy,destructible,terrain,bots,offline,no ads,hotseat,pass and play,cannon,tactics
