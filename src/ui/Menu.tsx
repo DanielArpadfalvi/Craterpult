@@ -6,6 +6,13 @@ import { currentStreak, dailyDay } from '../game/daily';
 import { totalStars } from '../game/progress';
 import type { UiState } from '../game/state';
 import { t, type TranslationKey } from '../i18n';
+import {
+  dailyNeedsFull,
+  difficultyNeedsFull,
+  mapStyleNeedsFull,
+  teamSizeNeedsFull,
+} from '../game/entitlement';
+import { FullVersionBadge, FullVersionButton, fvLock } from './Paywall';
 import { Page, Section } from './Page';
 
 interface Props {
@@ -44,6 +51,7 @@ export function Menu({ s, actions }: Props) {
           <MenuIcon name="sliders" />
         </button>
       </div>
+      <FullVersionButton s={s} actions={actions} />
       <button
         type="button"
         class="btn btn-primary btn-campaign"
@@ -135,10 +143,18 @@ function DailyCard({ s, actions }: Props) {
   const day = dailyDay(s.save, s.today);
   const streak = currentStreak(s.save, s.today);
   const mod = `daily.mod.${plan.modifier}` as TranslationKey;
+  const fvLocked = dailyNeedsFull() && !s.fullVersion;
   return (
-    <section class="card daily-card" data-testid="daily-card" aria-label={t('daily.title')}>
+    <section
+      class={`card daily-card${fvLocked ? ' is-fv-locked' : ''}`}
+      data-testid="daily-card"
+      aria-label={t('daily.title')}
+    >
       <div class="card-head">
-        <h2>{t('daily.title')}</h2>
+        <h2>
+          {t('daily.title')}
+          {fvLocked && <FullVersionBadge />}
+        </h2>
         <span class="card-date">{s.today}</span>
       </div>
       <p class="daily-mod" data-testid="daily-modifier">
@@ -154,11 +170,12 @@ function DailyCard({ s, actions }: Props) {
       </div>
       <button
         type="button"
-        class={`btn ${day.official ? 'btn-ghost' : 'btn-primary btn-gold'}`}
+        class={`btn ${day.official && !fvLocked ? 'btn-ghost' : 'btn-primary btn-gold'}`}
         data-testid="start-daily"
+        data-locked={fvLocked ? 'true' : 'false'}
         onClick={() => actions.startDaily()}
       >
-        {day.official ? t('daily.practice') : t('daily.play')}
+        {fvLocked ? t('paywall.dailyLocked') : day.official ? t('daily.practice') : t('daily.play')}
       </button>
     </section>
   );
@@ -177,11 +194,12 @@ export function QuickScreen({ s, actions }: Props) {
                 role="radio"
                 aria-checked={d === s.difficulty}
                 aria-label={t(`difficulty.${d}`)}
-                class={`chip chip-stars${d === s.difficulty ? ' is-on' : ''}`}
+                class={`chip chip-stars${d === s.difficulty ? ' is-on' : ''}${fvLock(s, difficultyNeedsFull(d))}`}
                 data-testid={`difficulty-${d}`}
                 onClick={() => actions.setDifficulty(d)}
               >
                 {'★'.repeat(d)}
+                {fvLock(s, difficultyNeedsFull(d)) && <FullVersionBadge />}
               </button>
             ))}
           </div>
@@ -199,11 +217,12 @@ export function QuickScreen({ s, actions }: Props) {
                 key={n}
                 role="radio"
                 aria-checked={n === s.teamSize}
-                class={`chip${n === s.teamSize ? ' is-on' : ''}`}
+                class={`chip${n === s.teamSize ? ' is-on' : ''}${fvLock(s, teamSizeNeedsFull(n))}`}
                 data-testid={`team-size-${n}`}
                 onClick={() => actions.setTeamSize(n)}
               >
                 {n}
+                {fvLock(s, teamSizeNeedsFull(n)) && <FullVersionBadge />}
               </button>
             ))}
           </div>
@@ -218,11 +237,12 @@ export function QuickScreen({ s, actions }: Props) {
                 key={m}
                 role="radio"
                 aria-checked={m === s.mapStyle}
-                class={`chip${m === s.mapStyle ? ' is-on' : ''}`}
+                class={`chip${m === s.mapStyle ? ' is-on' : ''}${fvLock(s, mapStyleNeedsFull(m))}`}
                 data-testid={`map-style-${m}`}
                 onClick={() => actions.setMapStyle(m)}
               >
                 {t(`map.${m}` as TranslationKey)}
+                {fvLock(s, mapStyleNeedsFull(m)) && <FullVersionBadge />}
               </button>
             ))}
           </div>

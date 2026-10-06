@@ -3,6 +3,7 @@ import type { GameActions } from '../game/app';
 import {
   COLOR_COUNT,
   HAT_UNLOCKS,
+  hatNeedsFull,
   hatUnlocked,
   sanitizeTeamName,
   TEAM_NAME_MAX,
@@ -17,6 +18,7 @@ import { cssColor, TEAM_COLORS, TEAM_SHAPES } from '../render/palette';
 import { Avatar } from './Avatar';
 import { LockIcon } from './icons';
 import { Page, Section } from './Page';
+import { FullVersionBadge, fvLock } from './Paywall';
 
 interface Props {
   s: UiState;
@@ -31,7 +33,7 @@ export function TeamScreen({ s, actions }: Props) {
   // The field keeps what is typed (e.g. a trailing space); the save holds the sanitized name.
   const [draft, setDraft] = useState(p.name);
   const color = cssColor(TEAM_COLORS[p.color] as number);
-  const look = teamLooks(1, p, stars)[0];
+  const look = teamLooks(1, p, stars, s.fullVersion)[0];
   const defaultName = t(`team.${p.color}` as TranslationKey);
   return (
     <Page title={t('team.title')} testId="team" onBack={() => actions.openSheet(null)}>
@@ -98,7 +100,9 @@ export function TeamScreen({ s, actions }: Props) {
         <div class="row row-stack">
           <div class="hat-grid" role="radiogroup" aria-label={t('team.hat')}>
             {HAT_CHOICES.map((h) => {
-              const open = hatUnlocked(h, stars);
+              const open = hatUnlocked(h, stars, s.fullVersion);
+              // Full Version lock first: tapping it opens the sheet (the gate in monetization.ts).
+              const fv = fvLock(s, hatNeedsFull(h));
               const shown: HatStyle =
                 h === 'auto' ? ((TEAM_SHAPES[p.color] as HatStyle) ?? 'circle') : h;
               return (
@@ -107,14 +111,19 @@ export function TeamScreen({ s, actions }: Props) {
                   key={h}
                   role="radio"
                   aria-checked={h === p.hat}
-                  disabled={!open}
-                  class={`hat${h === p.hat ? ' is-on' : ''}${open ? '' : ' is-locked'}`}
+                  disabled={!open && !fv}
+                  class={`hat${h === p.hat ? ' is-on' : ''}${open ? '' : ' is-locked'}${fv}`}
                   data-testid={`hat-${h}`}
                   onClick={() => actions.updateProfile({ hat: h })}
                 >
                   <Avatar hat={shown} color={open ? color : '#9a94c4'} size={40} />
                   <span class="hat-name">
-                    {open ? (
+                    {fv ? (
+                      <>
+                        <FullVersionBadge />
+                        {t(`hat.${h}` as TranslationKey)}
+                      </>
+                    ) : open ? (
                       t(`hat.${h}` as TranslationKey)
                     ) : (
                       <>

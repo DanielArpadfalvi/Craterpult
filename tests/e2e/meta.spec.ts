@@ -165,7 +165,8 @@ test('stats after a quick match against the bot', async ({ page }) => {
 test('team customization: name, color and hat show in the match', async ({ page }) => {
   test.setTimeout(120_000);
   await seedSave(page);
-  const errors = await boot(page);
+  // Cosmetic hats are Full Version content (their locks: paywall.spec.ts).
+  const errors = await boot(page, '&full');
   await page.getByTestId('open-team').click();
   await expect(page.getByTestId('team')).toBeVisible();
   // 42 stars: two extra hats are open, the third is still locked.

@@ -1,4 +1,5 @@
 import { MISSIONS_EN } from './missions.en';
+import { PAYWALL_EN } from './paywall.en';
 
 export const en = {
   'app.title': 'Craterpult',
@@ -247,6 +248,7 @@ export const en = {
   'pause.restart': 'Restart',
   'pause.settings': 'Settings',
   ...MISSIONS_EN,
+  ...PAYWALL_EN,
 } as const;
 
 export type TranslationKey = keyof typeof en;

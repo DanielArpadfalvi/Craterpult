@@ -1,5 +1,6 @@
 import type { TranslationKey } from './en';
 import { MISSIONS_HU } from './missions.hu';
+import { PAYWALL_HU } from './paywall.hu';
 
 export const hu: Record<TranslationKey, string> = {
   'app.title': 'Craterpult',
@@ -248,4 +249,5 @@ export const hu: Record<TranslationKey, string> = {
   'pause.restart': 'Újrakezdés',
   'pause.settings': 'Beállítások',
   ...MISSIONS_HU,
+  ...PAYWALL_HU,
 };

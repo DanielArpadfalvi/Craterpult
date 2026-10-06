@@ -15,16 +15,15 @@ Körökre osztott artillery (Worms-szerű, saját IP) portré mobilra: rombolhat
 | M4 Botok (szimuláció-alapú, 5 nehézség) | ✅ |
 | M5 30 küldetés, gyors meccs beállítások, napi kihívás | ✅ |
 | M6 Beállítások, statisztika, csapat-testreszabás, vissza gomb, menü | ✅ (main: `9e2cfe1`) |
-| M7 Mobil héj (Capacitor, ikon/splash kódból, Android/iOS CI) | ✅ T7.1 · **T7.2 paywall: kész, de nincs a main-en (lásd 2.)** |
+| M7 Mobil héj (Capacitor, ikon/splash kódból, Android/iOS CI), T7.2 paywall | ✅ (T7.2 merge a main-re: 2026-10-06) |
 | M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA) | ⬜ |
 | M9 1.1 online (aszinkron meccs) | ⬜ |
 
-Tesztek a main-en: 189 unit (`npm run check`), 25 e2e (`npm run test:e2e`) – mind zöld volt az átadáskor. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow zöld volt az M7 merge-en; az M6 push CI-ját nézd meg.
+Tesztek a main-en: 243 unit (`npm run check`), 29 e2e (`npm run test:e2e`) – mind zöld a T7.2 merge után. Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow zöld volt az M7 merge-en; az M6 push CI-ját nézd meg.
 
 ## 2. Félkész munkák és ágak
 
-- **`t7.2-paywall`** (pusholva, `060b5fd`, a `4cdf61b`-ből ágazik): RevenueCat „Teljes verzió” paywall + restore, gating (`src/game/entitlement.ts`), mock store webre, „store unavailable” natívon kulcs nélkül, lakat-jelvények, `paywall.spec.ts`, RELEASE.md 6. fejezet. Saját ágán 193 unit teszt zöld.
-  **Teendő:** merge a main-re. Ütközik az M6 menü-átalakításával: `src/ui/App.tsx` (sheet + PaywallSheet renderelés együtt), `src/ui/Menu.tsx` (a nehézség/csapatméret/pályastílus chipek az M6-ban átkerültek a `QuickScreen`-re – oda kell áttenni a `fvLock`/`FullVersionBadge` jelvényeket; a `FullVersionButton` a főmenübe a „menu-play” sor alá), `tests/e2e/daily.spec.ts` (mindkét változat kell: `boot(page, '&full')` + `open-quick`). Az M6 megszüntette a `toggleSound`-ot és a menü nyelvváltót – a paywall ágon ezek hívásait `updateSettings`/`openSheet`-re kell cserélni. A kalapok (M6: `src/game/profile.ts`) zárolását a `hatsNeedFull()`-ra kell kötni.
+- **`t7.2-paywall`**: **merge-elve a main-re** (2026-10-06). RevenueCat „Teljes verzió” paywall + restore, gating (`src/game/entitlement.ts`, `src/game/monetization.ts`), mock store webre, „store unavailable” natívon kulcs nélkül, `paywall.spec.ts`, RELEASE.md 6. fejezet. Az M6-tal való ütközések feloldása: `App.tsx` a sheetet és a `PaywallSheet`-et is rendereli (a paywall mindig felül); a lakat-jelvények a `QuickScreen` chipjein vannak, a `FullVersionButton` a főmenüben a „menu-play” sor alatt; a haptika a `save.settings.haptics`-et nézi (a `muted` megszűnt); a díszkalapok (Korona/Szarvak/Glória) `hatNeedsFull()` szerint zárolva (`src/game/profile.ts`, Team képernyő: zárolt kalapra koppintás → paywall `hats` indokkal; a sima csapatformák ingyenesek). Az ág a remote-on megmaradt.
 - **T3.3 pályatémák:** kész és a main-en (5 téma: hills, islands, cavern, towers, flats; `src/render/themes.ts`, `backdrop.ts`, `ambient.ts`). A `t3.3-themes` ág is pusholva maradt (`0efb2a8`).
 
 ## 3. Nyitott döntések / ismert hibák
@@ -39,7 +38,7 @@ Tesztek a main-en: 189 unit (`npm run check`), 25 e2e (`npm run test:e2e`) – m
 
 ## 4. Következő lépések sorrendben
 
-1. `t7.2-paywall` merge a main-re (ütközések: 2. pont), `npm run check && npm run build && npm run test:e2e`, push, CI.
+1. ~~`t7.2-paywall` merge a main-re~~ kész; a push utáni CI-t (CI, Android, iOS) ellenőrizni kell.
 2. M8: store-szövegek EN/HU, screenshot-generátor (Swaplight `scripts/store-frames.ts` + `tests/e2e/store-screens.spec.ts` mintájára), adatvédelmi/támogatási weboldal, korhatár-besorolás, teljes QA-kör 3 képernyőméreten EN/HU.
 3. Valódi eszközös teszt a `android-debug-latest` APK-val, egyensúly-finomhangolás (botok, kampány).
 4. M9 (1.1): backend-döntés (javaslat: Supabase), aszinkron meccs.

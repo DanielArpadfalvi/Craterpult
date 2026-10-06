@@ -6,6 +6,7 @@ import { t } from '../i18n';
 import { CampaignScreen } from './Campaign';
 import { WeaponIcon } from './icons';
 import { Menu, QuickScreen } from './Menu';
+import { PaywallSheet } from './Paywall';
 import { ResultOverlay } from './Result';
 import { SettingsScreen } from './Settings';
 import { StatsScreen } from './Stats';
@@ -24,6 +25,15 @@ interface ViewProps {
 
 export function App({ store, actions }: Props) {
   const s = useStore(store);
+  return (
+    <>
+      <Screens s={s} actions={actions} />
+      {s.paywall.open && <PaywallSheet s={s} actions={actions} />}
+    </>
+  );
+}
+
+function Screens({ s, actions }: ViewProps) {
   const sheet = s.sheet && <SheetView s={s} actions={actions} />;
   // Over the menus a sheet replaces the screen; over a match it covers the paused game.
   if (sheet && s.screen !== 'playing') return sheet;

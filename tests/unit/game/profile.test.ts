@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { hatsNeedFull } from '../../../src/game/entitlement';
 import {
   DEFAULT_PROFILE,
   HAT_UNLOCKS,
+  hatNeedsFull,
   hatUnlocked,
   sanitizeProfile,
   sanitizeTeamName,
@@ -40,17 +42,29 @@ describe('profile', () => {
   });
 
   it('unlocks extra hats by campaign stars', () => {
-    expect(hatUnlocked('circle', 0)).toBe(true);
-    expect(hatUnlocked('auto', 0)).toBe(true);
-    expect(hatUnlocked('crown', HAT_UNLOCKS.crown! - 1)).toBe(false);
-    expect(hatUnlocked('crown', HAT_UNLOCKS.crown!)).toBe(true);
+    expect(hatUnlocked('circle', 0, true)).toBe(true);
+    expect(hatUnlocked('auto', 0, true)).toBe(true);
+    expect(hatUnlocked('crown', HAT_UNLOCKS.crown! - 1, true)).toBe(false);
+    expect(hatUnlocked('crown', HAT_UNLOCKS.crown!, true)).toBe(true);
     expect(Object.keys(HAT_UNLOCKS).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('cosmetic hats need the Full Version; the team shapes stay free (T7.2)', () => {
+    expect(hatsNeedFull()).toBe(true);
+    expect(hatNeedsFull('auto')).toBe(false);
+    expect(hatNeedsFull('circle')).toBe(false);
+    for (const hat of Object.keys(HAT_UNLOCKS) as (keyof typeof HAT_UNLOCKS)[]) {
+      expect(hatNeedsFull(hat)).toBe(true);
+      expect(hatUnlocked(hat, 999, false)).toBe(false);
+      expect(hatUnlocked(hat, 999, true)).toBe(true);
+    }
+    expect(hatUnlocked('square', 0, false)).toBe(true);
   });
 });
 
 describe('team looks', () => {
   it('defaults to the classic team colors and shapes', () => {
-    expect(teamLooks(4, DEFAULT_PROFILE, 0)).toEqual([
+    expect(teamLooks(4, DEFAULT_PROFILE, 0, true)).toEqual([
       { color: 0, hat: 'circle' },
       { color: 1, hat: 'diamond' },
       { color: 2, hat: 'triangle' },
@@ -59,20 +73,22 @@ describe('team looks', () => {
   });
 
   it('gives the bots the other colors', () => {
-    const looks = teamLooks(3, { ...DEFAULT_PROFILE, color: 1 }, 0);
+    const looks = teamLooks(3, { ...DEFAULT_PROFILE, color: 1 }, 0, true);
     expect(looks.map((l) => l.color)).toEqual([1, 0, 2]);
     expect(looks[0]!.hat).toBe('diamond');
   });
 
   it('keeps every hat distinct when the player wears another team shape', () => {
-    const looks = teamLooks(4, { name: '', color: 0, hat: 'diamond' }, 0);
+    const looks = teamLooks(4, { name: '', color: 0, hat: 'diamond' }, 0, true);
     expect(looks[0]).toEqual({ color: 0, hat: 'diamond' });
     expect(looks[1]).toEqual({ color: 1, hat: 'circle' });
     expect(new Set(looks.map((l) => l.hat)).size).toBe(4);
   });
 
   it('falls back to the classic hat when an unlock is not earned (e.g. after a reset)', () => {
-    expect(teamLooks(2, { name: '', color: 3, hat: 'halo' }, 0)[0]!.hat).toBe('square');
-    expect(teamLooks(2, { name: '', color: 3, hat: 'halo' }, 90)[0]!.hat).toBe('halo');
+    expect(teamLooks(2, { name: '', color: 3, hat: 'halo' }, 0, true)[0]!.hat).toBe('square');
+    expect(teamLooks(2, { name: '', color: 3, hat: 'halo' }, 90, true)[0]!.hat).toBe('halo');
+    // Without the Full Version (e.g. refunded) the cosmetic hat falls back as well.
+    expect(teamLooks(2, { name: '', color: 3, hat: 'halo' }, 90, false)[0]!.hat).toBe('square');
   });
 });

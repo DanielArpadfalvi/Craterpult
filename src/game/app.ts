@@ -23,7 +23,7 @@ import {
   dailySetup,
 } from '../core/daily';
 import { activeUnit, canFire, canMove, createMatch, step, type MatchSetup } from '../core/match';
-import { MAP_STYLES, type MapStyle } from '../core/mapgen';
+import type { MapStyle } from '../core/mapgen';
 import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
@@ -62,8 +62,10 @@ import { createTally, recordMatch, tallyEvents, type MatchTally } from './stats'
 import { GameLoop } from './loop';
 import { INITIAL_UI, type GameMode, type Sheet, type UiState } from './state';
 import { createStore, type Store } from './store';
+import { ownedMapStyles } from './entitlement';
+import { createMonetization, type MonetizationActions } from './monetization';
 
-export interface GameActions {
+export interface GameActions extends MonetizationActions {
   startHotseat(seed?: string): void;
   startBotMatch(difficulty: Difficulty, seed?: string): void;
   setTeamSize(n: number): void;
@@ -144,6 +146,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   const audio = new AudioEngine();
   const platform = getPlatform();
   const haptics = platform.haptics;
+  const shop = createMonetization({ store, platform, audio });
   // Browsers only start audio from a user gesture.
   window.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
   onLanguageChange(() => {
@@ -245,7 +248,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   /** Colors and hats of a match's teams (team 0 = the player's customized crew). */
   let looks: TeamLook[] = [];
   const looksFor = (teams: number): TeamLook[] =>
-    teamLooks(teams, getSave().profile, totalStars(getSave()));
+    teamLooks(teams, getSave().profile, totalStars(getSave()), store.get().fullVersion);
   const teamCss = (team: number): string =>
     cssColor(TEAM_COLORS[(looks[team]?.color ?? team) % TEAM_COLORS.length] as number);
   /** The player's team name, or `fallback` when not customized. */
@@ -801,6 +804,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   // ---------------------------------------------------------------------------------------------
 
   const actions: GameActions = {
+    ...shop.actions,
     startHotseat(seed) {
       const sd = seed ?? `hs-${Date.now().toString(36)}`;
       startMatch({ mode: 'hotseat', setup: versusSetup(sd, null, 3, 'hills'), bot: null });
@@ -810,7 +814,9 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       const st = store.get();
       const sd = seed ?? `bot-${Date.now().toString(36)}`;
       const style =
-        st.mapStyle === 'random' ? pick(createRng(`style:${sd}`), MAP_STYLES) : st.mapStyle;
+        st.mapStyle === 'random'
+          ? pick(createRng(`style:${sd}`), ownedMapStyles(st.fullVersion))
+          : st.mapStyle;
       startMatch({
         mode: 'quick',
         setup: versusSetup(sd, difficulty, st.teamSize, style),
@@ -1000,6 +1006,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       }
     },
   };
+  shop.gate(actions);
 
   // Android back button / Escape: close, pause or go back; never exits from the menu.
   platform.lifecycle.onBackButton(() => actions.back());
@@ -1010,9 +1017,11 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   });
 
   if (testMode) {
+    const purchasesTestApi = await shop.testSetup(new URLSearchParams(location.search));
     (window as unknown as { __craterpult: unknown }).__craterpult = {
       ready: true,
       actions,
+      purchases: purchasesTestApi,
       getMatch: () => match,
       summary: () => {
         const s = match;

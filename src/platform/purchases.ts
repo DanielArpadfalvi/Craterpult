@@ -1,0 +1,137 @@
+import { ListenerSet } from './listeners';
+import type { Storage, Unsubscribe } from './types';
+
+/** Store product id of the one-time "Full Version" unlock (configure the same id in both stores). */
+export const FULL_VERSION_PRODUCT_ID = 'craterpult_full_version';
+
+export interface Product {
+  id: string;
+  title: string;
+  description: string;
+  /** Localised price as provided by the store, e.g. "$4.99" or "1 990 Ft". */
+  priceString: string;
+}
+
+export type PurchaseOutcome = 'purchased' | 'cancelled' | 'pending' | 'failed';
+
+export interface PurchaseResult {
+  outcome: PurchaseOutcome;
+  /** Entitlement state after the attempt. */
+  fullVersion: boolean;
+  error?: string;
+}
+
+/**
+ * In-app purchase abstraction (`MockPurchases` on web/dev, `RevenueCatPurchases` on device).
+ * Call `init()` once at startup before relying on `isFullVersion()`.
+ */
+export interface Purchases {
+  init(): Promise<void>;
+  getProducts(): Promise<Product[]>;
+  purchaseFullVersion(): Promise<PurchaseResult>;
+  /** Restores previous purchases; resolves to the resulting entitlement state. */
+  restore(): Promise<boolean>;
+  /** Cached entitlement state (false until `init()` resolves). */
+  isFullVersion(): boolean;
+  /** Fires whenever the entitlement state changes. */
+  onEntitlementChange(listener: (fullVersion: boolean) => void): Unsubscribe;
+}
+
+export const MOCK_PURCHASES_STORAGE_KEY = 'craterpult:purchases.mock.fullVersion';
+
+/**
+ * Dev/web mock. The "owned" flag is persisted in {@link Storage}, so a
+ * purchase survives reloads and `restore()` brings it back after a reset of
+ * the in-memory state. Use `setFullVersion()` as a dev toggle and
+ * `setNextOutcome()` to simulate cancel/pending/failure flows.
+ */
+export class MockPurchases implements Purchases {
+  private full = false;
+  private nextOutcome: PurchaseOutcome = 'purchased';
+  private latencyMs = 0;
+  private readonly listeners = new ListenerSet<[boolean]>();
+
+  constructor(
+    private readonly storage: Storage,
+    private readonly product: Product = {
+      id: FULL_VERSION_PRODUCT_ID,
+      title: 'Craterpult – Full Version',
+      description: 'Unlock every chapter, bot level, map and the Daily Challenge.',
+      priceString: '$4.99',
+    },
+  ) {}
+
+  async init(): Promise<void> {
+    this.update((await this.storage.get<boolean>(MOCK_PURCHASES_STORAGE_KEY)) === true);
+  }
+
+  async getProducts(): Promise<Product[]> {
+    return [{ ...this.product }];
+  }
+
+  async purchaseFullVersion(): Promise<PurchaseResult> {
+    await this.delay();
+    const outcome = this.nextOutcome;
+    this.nextOutcome = 'purchased';
+    if (outcome === 'purchased') {
+      await this.storage.set(MOCK_PURCHASES_STORAGE_KEY, true);
+      this.update(true);
+      return { outcome, fullVersion: true };
+    }
+    return {
+      outcome,
+      fullVersion: this.full,
+      ...(outcome === 'failed' ? { error: 'Simulated purchase failure' } : {}),
+    };
+  }
+
+  async restore(): Promise<boolean> {
+    await this.delay();
+    await this.init();
+    return this.full;
+  }
+
+  isFullVersion(): boolean {
+    return this.full;
+  }
+
+  onEntitlementChange(listener: (fullVersion: boolean) => void): Unsubscribe {
+    return this.listeners.add(listener);
+  }
+
+  private delay(): Promise<void> {
+    if (this.latencyMs <= 0) return Promise.resolve();
+    return new Promise((resolve) => setTimeout(resolve, this.latencyMs));
+  }
+
+  /** Dev toggle: grant or revoke the full version (persisted). */
+  async setFullVersion(value: boolean): Promise<void> {
+    if (value) await this.storage.set(MOCK_PURCHASES_STORAGE_KEY, true);
+    else await this.storage.remove(MOCK_PURCHASES_STORAGE_KEY);
+    this.update(value);
+  }
+
+  /** Outcome of the next `purchaseFullVersion()` call (then resets to `purchased`). */
+  setNextOutcome(outcome: PurchaseOutcome): void {
+    this.nextOutcome = outcome;
+  }
+
+  /**
+   * Test hook: the store knows about a purchase this install has not seen yet (e.g. bought on
+   * another device). Only `restore()` / the next `init()` picks it up.
+   */
+  async simulateOwnedElsewhere(): Promise<void> {
+    await this.storage.set(MOCK_PURCHASES_STORAGE_KEY, true);
+  }
+
+  /** Simulated store latency (ms) of `purchaseFullVersion()` / `restore()`, for UI states. */
+  setLatency(ms: number): void {
+    this.latencyMs = Math.max(0, ms);
+  }
+
+  private update(value: boolean): void {
+    if (value === this.full) return;
+    this.full = value;
+    this.listeners.emit(value);
+  }
+}

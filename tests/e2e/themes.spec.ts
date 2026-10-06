@@ -16,7 +16,7 @@ const STYLES = ['hills', 'islands', 'cavern', 'towers', 'flats'] as const;
 for (const style of STYLES) {
   test(`map theme: ${style}`, async ({ page }) => {
     test.setTimeout(120_000);
-    const errors = await boot(page);
+    const errors = await boot(page, '&full');
     await page.evaluate((st) => {
       const api = (window as unknown as { __craterpult: ThemeApi }).__craterpult;
       api.actions.setMapStyle(st);

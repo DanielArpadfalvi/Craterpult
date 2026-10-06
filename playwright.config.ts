@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+/** Override with PW_PORT to run several e2e suites side by side. */
+const PORT = Number(process.env.PW_PORT ?? 4173);
 
 /**
  * The cloud dev container ships a preinstalled Chromium under PLAYWRIGHT_BROWSERS_PATH

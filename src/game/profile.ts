@@ -1,4 +1,5 @@
 import { HAT_STYLES, type HatStyle } from '../render/hats';
+import { hatsNeedFull } from './entitlement';
 import { TEAM_COLORS, TEAM_SHAPES } from '../render/palette';
 
 /** The player's team customization (persisted in the save). */
@@ -19,8 +20,18 @@ export const DEFAULT_PROFILE: Readonly<Profile> = { name: '', color: 0, hat: 'au
 /** Cosmetic hats unlocked by total campaign stars. */
 export const HAT_UNLOCKS: Partial<Record<HatStyle, number>> = { crown: 12, horns: 36, halo: 66 };
 
-export function hatUnlocked(hat: HatStyle | 'auto', stars: number): boolean {
+/**
+ * Cosmetic hats (the star unlocks above; the plain team shapes stay free for color-blind
+ * players) are Full Version content (T7.2, `hatsNeedFull()`).
+ */
+export function hatNeedsFull(hat: HatStyle | 'auto'): boolean {
+  return hat !== 'auto' && HAT_UNLOCKS[hat] !== undefined && hatsNeedFull();
+}
+
+/** A hat the player may wear: owned (Full Version, if needed) and earned by campaign stars. */
+export function hatUnlocked(hat: HatStyle | 'auto', stars: number, fullVersion: boolean): boolean {
   if (hat === 'auto') return true;
+  if (hatNeedsFull(hat) && !fullVersion) return false;
   return stars >= (HAT_UNLOCKS[hat] ?? 0);
 }
 
@@ -67,10 +78,15 @@ export interface TeamLook {
  * another color's shape, that team gets the player's color shape instead, so every team keeps a
  * distinct hat for color-blind players.
  */
-export function teamLooks(teamCount: number, profile: Profile, stars: number): TeamLook[] {
+export function teamLooks(
+  teamCount: number,
+  profile: Profile,
+  stars: number,
+  fullVersion: boolean,
+): TeamLook[] {
   const own = profile.color % COLOR_COUNT;
   const ownHat: HatStyle =
-    profile.hat !== 'auto' && hatUnlocked(profile.hat, stars)
+    profile.hat !== 'auto' && hatUnlocked(profile.hat, stars, fullVersion)
       ? profile.hat
       : (TEAM_SHAPES[own] as HatStyle);
   const others = Array.from({ length: COLOR_COUNT }, (_, i) => i).filter((c) => c !== own);
