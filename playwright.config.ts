@@ -26,7 +26,9 @@ export default defineConfig({
   testIgnore: 'store-screens.spec.ts',
   outputDir: 'test-results',
   fullyParallel: true,
-  workers: process.env.CI ? undefined : 2,
+  // Each worker drives its own headless Chromium rendering the game canvas; on a dev
+  // machine more than 2 saturate the CPU. Override with PW_WORKERS (CI uses the default).
+  workers: process.env.CI ? undefined : Number(process.env.PW_WORKERS ?? 2),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // CI: 'github' turns failures into run annotations (readable without log access).
