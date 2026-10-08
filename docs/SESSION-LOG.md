@@ -6,6 +6,18 @@ here, and continue from its **Next** line.
 
 ---
 
+## 2026-10-08 – local session (main)
+
+**Done:**
+- `ba40fa3` Mobile playtest fixes: units resting only on their outermost pixel column never counted as grounded, so the settling phase hit its 10 s cap after most shots (now ~0.75 s); bot teams skip the 3 s retreat; weapon crates picked up by a restricted-arsenal team (`only`) turn into one of its own weapons (`Team.allowed`); active unit gets a bobbing arrow, a pulsing ring and a bigger HP label.
+- `98005d7` CI: the debug APK is also copied to the owner's Google Drive (`Mobile games/craterpult-latest.apk`, overwritten in place) – `scripts/drive-upload.sh`, token helper `scripts/drive-auth.ts`, setup in `docs/RELEASE.md`.
+
+**Waiting on the owner:** `GDRIVE_CLIENT_ID/SECRET/REFRESH_TOKEN` secrets (until then the Drive step is skipped with a notice); feedback from the phone on turn pacing and the active-unit marker.
+
+**Next:** owner playtest feedback; otherwise the previous entry's Next.
+
+---
+
 ## 2026-10-08 – cloud session (claude/funny-curie-v9b41i → main)
 
 **Mode:** autonomous, directly on `main`, merge/push after every task (owner's instruction).
