@@ -139,6 +139,20 @@ test('online: invite → join → both turns are played and replayed identically
   await host.getByTestId('online-to-list').click();
   await expect(host.locator('[data-status="finished"]')).toHaveCount(1);
 
+  // Rematch (free for both): the guest offers it, the host accepts it from the list and moves first.
+  await guest.getByTestId('online-rematch').click();
+  await expect(guest.getByTestId('invite-card')).toBeVisible();
+  await expect(guest.getByTestId('online-rematch-sent')).toBeVisible();
+  await host.getByTestId('online-refresh').click();
+  const accept = host.locator('[data-testid="online-rematch"][data-offered="1"]');
+  await expect(accept).toBeVisible();
+  await host.screenshot({ path: `${SHOTS}/online-rematch.png` });
+  await accept.click();
+  await expect(host.getByTestId('hud')).toBeVisible();
+  h = (await summary(host))!;
+  expect(h.activeTeam).toBe(0);
+  expect(h.units).toHaveLength(4);
+
   expect(hostErrors).toEqual([]);
   expect(guestErrors).toEqual([]);
 });

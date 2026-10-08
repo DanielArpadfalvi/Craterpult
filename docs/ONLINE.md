@@ -26,6 +26,7 @@
 | Ellenfél köre | a másik | a meccs újraépül a tárolt körökből; az ellenfél legutóbbi köre **élőben lejátszódik** (átugorható), a végén állapot-hash ellenőrzés. Eltérés → „desync” képernyő, a meccs nem folytatható. |
 | Várakozás | | 4 mp-es lekérdezés, amíg a meccs nyitva van; push, ha be van kapcsolva. |
 | Vége | | a győztes / döntetlen a beküldő kliens szerint (`outcomeOf`), a másik kliens a visszajátszással ellenőrzi; feladás: `resign_match`. |
+| Visszavágó | bármelyik (ingyenes is) | `rematch_match(id, params, name)` a befejezett meccsre: az első kérő új nyitott meccset kap (friss seed, azonos beállítások), ami **csak a régi ellenfélnek** van fenntartva (`reserved`); a régi meccsen `rematch`/`rematchBy` jelzi. Az ellenfél listájában a „Te jössz” alatt „Visszavágó elfogadása” jelenik meg; ha ő is kéri, csatlakozik és ő kezd. Visszavonás = a nyitott meccs törlése (`cancel_match`), utána bárki újra kérhet. |
 
 Ingyenes vs. Teljes verzió: **létrehozni** Teljes verzióval lehet, **csatlakozni** ingyen (így bárki
 elfogadhat egy meghívót). Statisztika: „Online” mód, csak lejátszott/nyert (meccsenként egyszer).
@@ -38,6 +39,7 @@ Ismert korlátok (1.1):
   újra (elvileg „újrapróbálhat” egy lövést). Védelem később: kör-kezdés jelzése a szervernek.
 - A győztest a kliens állítja; a csalást a másik kliens hash-ellenőrzése jelzi, a szerver nem dönt.
 - Nincs időkorlát a válaszra (a meccs örökké várhat); feladás bármikor.
+- A visszavágó-ajánlatról nem megy push (csak a lista mutatja; push az elfogadáskor, mint csatlakozáskor).
 
 ## 3. Kód
 

@@ -170,6 +170,10 @@ export class SupabaseOnline implements OnlineService {
     return toMatch(await this.rpc('resign_match', { match_id: id }));
   }
 
+  async rematch(id: string, params: OnlineParams, name: string): Promise<OnlineMatch> {
+    return toMatch(await this.rpc('rematch_match', { match_id: id, params, name }));
+  }
+
   async cancel(id: string): Promise<void> {
     await this.rpc('cancel_match', { match_id: id });
   }
@@ -232,5 +236,7 @@ function toMatch(raw: unknown): OnlineMatch {
     winner: r.winner === null || r.winner === undefined ? null : Number(r.winner),
     resigned: r.resigned === null || r.resigned === undefined ? null : Number(r.resigned),
     updatedAt: Number(r.updatedAt ?? 0),
+    rematch: typeof r.rematch === 'string' ? r.rematch : null,
+    rematchBy: r.rematchBy === null || r.rematchBy === undefined ? null : Number(r.rematchBy),
   };
 }

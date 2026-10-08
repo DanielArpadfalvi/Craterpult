@@ -30,6 +30,10 @@ interface Row {
   winner: number | null;
   resigned: number | null;
   updatedAt: number;
+  /** Only this player may join (a rematch), or null. */
+  reserved?: string | null;
+  rematch?: string | null;
+  rematchBy?: number | null;
 }
 
 interface Db {
@@ -98,6 +102,8 @@ export class MockOnline implements OnlineService {
       winner: r.winner,
       resigned: r.resigned,
       updatedAt: r.updatedAt,
+      rematch: r.rematch ?? null,
+      rematchBy: r.rematchBy ?? null,
     };
   }
 
@@ -113,6 +119,12 @@ export class MockOnline implements OnlineService {
 
   createMatch(params: OnlineParams, name: string): Promise<OnlineMatch> {
     const db = this.load();
+    const row = this.insert(db, params, name, null);
+    this.save(db);
+    return Promise.resolve(this.view(row));
+  }
+
+  private insert(db: Db, params: OnlineParams, name: string, reserved: string | null): Row {
     let code = makeInviteCode(this.rand);
     while (Object.values(db.matches).some((m) => m.code === code && m.status === 'open'))
       code = makeInviteCode(this.rand);
@@ -129,25 +141,31 @@ export class MockOnline implements OnlineService {
       winner: null,
       resigned: null,
       updatedAt: this.now(),
+      reserved,
     };
     db.matches[id] = row;
     db.turns[id] = [];
-    this.save(db);
-    return Promise.resolve(this.view(row));
+    return row;
+  }
+
+  private take(row: Row, name: string): void {
+    row.players[0] = this.me();
+    row.names[0] = cleanName(name);
+    row.status = 'active';
+    row.nextTeam = 0;
+    row.reserved = null;
+    row.updatedAt = this.now();
   }
 
   joinMatch(code: string, name: string): Promise<OnlineMatch> {
     const db = this.load();
     const c = normalizeInviteCode(code);
     const row = Object.values(db.matches).find((m) => m.code === c && m.status === 'open');
-    if (!c || !row) return Promise.reject(new OnlineError('notFound'));
+    if (!c || !row || (row.reserved && row.reserved !== this.me()))
+      return Promise.reject(new OnlineError('notFound'));
     if (row.players.includes(this.me())) return Promise.reject(new OnlineError('ownMatch'));
     if (row.params.protocol !== ONLINE_PROTOCOL) return Promise.reject(new OnlineError('protocol'));
-    row.players[0] = this.me();
-    row.names[0] = cleanName(name);
-    row.status = 'active';
-    row.nextTeam = 0;
-    row.updatedAt = this.now();
+    this.take(row, name);
     this.save(db);
     return Promise.resolve(this.view(row));
   }
@@ -217,12 +235,44 @@ export class MockOnline implements OnlineService {
     }
   }
 
+  rematch(id: string, params: OnlineParams, name: string): Promise<OnlineMatch> {
+    try {
+      const db = this.load();
+      const old = this.member(db, id);
+      if (old.status !== 'finished') throw new OnlineError('conflict');
+      const me = this.me();
+      const next = old.rematch ? db.matches[old.rematch] : undefined;
+      if (next) {
+        if (next.status === 'open' && next.players[1] !== me) {
+          if (next.params.protocol !== ONLINE_PROTOCOL) throw new OnlineError('protocol');
+          this.take(next, name);
+          this.save(db);
+        }
+        return Promise.resolve(this.view(this.member(db, next.id)));
+      }
+      const opponent = old.players.find((p) => p !== me) ?? null;
+      const row = this.insert(db, params, name, opponent);
+      old.rematch = row.id;
+      old.rematchBy = old.players.indexOf(me);
+      old.updatedAt = this.now();
+      this.save(db);
+      return Promise.resolve(this.view(row));
+    } catch (e) {
+      return Promise.reject(e as Error);
+    }
+  }
+
   cancel(id: string): Promise<void> {
     const db = this.load();
     const row = db.matches[id];
     if (row && row.status === 'open' && row.players[1] === this.me()) {
       delete db.matches[id];
       delete db.turns[id];
+      for (const m of Object.values(db.matches))
+        if (m.rematch === id) {
+          m.rematch = null;
+          m.rematchBy = null;
+        }
       this.save(db);
     }
     return Promise.resolve();

@@ -1338,11 +1338,17 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
   };
   shop.gate(actions);
+  // A rematch asked for on the game-over card leaves the finished match first.
+  const rematchOnline = actions.onlineRematch;
+  actions.onlineRematch = async (id) => {
+    if (match) actions.toMenu();
+    await rematchOnline(id);
+  };
   // Register for "your turn" pushes once the player takes part in an online match.
-  for (const name of ['onlineCreate', 'onlineJoin'] as const) {
+  for (const name of ['onlineCreate', 'onlineJoin', 'onlineRematch'] as const) {
     const inner = actions[name];
-    actions[name] = async () => {
-      await inner();
+    actions[name] = async (id?: string) => {
+      await inner(id as string);
       // Not after an error, nor while the Full Version sheet is asking first.
       if (store.get().online.error || store.get().paywall.open) return;
       const reg = await platform.push.register();

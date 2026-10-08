@@ -1646,6 +1646,8 @@ html.reduce-motion .team-fill {
   opacity: 0.7;
 }
 .online-resign {
+  flex: none;
+  width: auto;
   min-height: 40px;
   padding: 6px 10px;
   font-size: 13px;
@@ -1694,4 +1696,15 @@ html.reduce-motion .team-fill {
   width: auto;
   padding-left: 18px;
   padding-right: 18px;
+}
+.online-rematch {
+  flex: none;
+  width: auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.online-rematch-sent {
+  font-size: 12px;
+  opacity: 0.7;
 }

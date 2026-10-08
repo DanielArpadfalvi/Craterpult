@@ -89,6 +89,8 @@ export interface OnlineActions {
   onlineOpen(id: string): Promise<void>;
   onlineCancel(id: string): Promise<void>;
   onlineResign(id: string): Promise<void>;
+  /** Offer a rematch of a finished match, or take up the opponent's offer (then play it). */
+  onlineRematch(id: string): Promise<void>;
   onlineShare(id: string): Promise<void>;
   onlineDismissInvite(): void;
 }
@@ -302,6 +304,25 @@ export function createOnline(d: OnlineDeps): OnlineController {
       patch({ confirmResign: null });
       const m = await guard(() => service.resign(id));
       if (m) upsert(m);
+    },
+    async onlineRematch(id) {
+      const old = ui().matches.find((x) => x.id === id);
+      const params = sanitizeParams({ ...(old?.params ?? {}), seed: d.seed() });
+      const m = await guard(async () => {
+        // Our last turn may still be on its way: the server needs the match finished first.
+        await flush().catch(() => undefined);
+        return service.rematch(id, params, d.playerName());
+      });
+      if (!m) return;
+      upsert(m);
+      if (old && old.rematch === null)
+        upsert({ ...old, rematch: m.id, rematchBy: old.myTeam, updatedAt: m.updatedAt });
+      if (m.status === 'open') {
+        store.set({ sheet: 'online' });
+        patch({ invite: m.id });
+        return;
+      }
+      await actions.onlineOpen(m.id);
     },
     async onlineShare(id) {
       const m = ui().matches.find((x) => x.id === id);

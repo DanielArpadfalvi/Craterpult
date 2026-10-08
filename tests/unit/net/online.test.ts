@@ -4,8 +4,8 @@ import { createMemoryStorage } from '../../../src/platform/storage';
 import { cleanName, MockOnline, type KeyValue } from '../../../src/net/mock';
 import { selectOnline, UnavailableOnline } from '../../../src/net/select';
 import { errorCode, SUPABASE_SESSION_KEY, SupabaseOnline } from '../../../src/net/supabase';
-import type { OnlineError} from '../../../src/net/types';
-import { isMyTurn, opponentName } from '../../../src/net/types';
+import type { OnlineError } from '../../../src/net/types';
+import { isMyTurn, opponentName, rematchOffered } from '../../../src/net/types';
 
 function kv(): KeyValue {
   const m = new Map<string, string>();
@@ -101,6 +101,46 @@ describe('MockOnline', () => {
     expect((await a.listMatches()).some((x) => x.id === open.id)).toBe(false);
   });
 
+  it('rematch: the first ask opens a match reserved for the opponent, the second joins it', async () => {
+    const { a, b, c } = pair();
+    const m = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(m.code, 'Bob');
+    expect(await code(a.rematch(m.id, PARAMS, 'Ann'))).toBe('conflict');
+    await b.resign(m.id);
+
+    const fresh = { ...PARAMS, seed: 's2' };
+    const r = await a.rematch(m.id, fresh, 'Ann');
+    expect(r).toMatchObject({ status: 'open', myTeam: 1, params: { seed: 's2' } });
+    expect(await a.rematch(m.id, fresh, 'Ann')).toMatchObject({ id: r.id, status: 'open' });
+    expect(await a.getMatch(m.id)).toMatchObject({ rematch: r.id, rematchBy: 1 });
+    const seen = await b.getMatch(m.id);
+    expect(rematchOffered(seen)).toBe(true);
+    expect(rematchOffered(await a.getMatch(m.id))).toBe(false);
+    // Only the old opponent can take the seat, even with the code.
+    expect(await code(c.joinMatch(r.code, 'Cy'))).toBe('notFound');
+
+    // The opponent's params are ignored: they join the offered match and move first.
+    const j = await b.rematch(m.id, { ...PARAMS, seed: 'other' }, 'Bob');
+    expect(j).toMatchObject({ id: r.id, status: 'active', myTeam: 0, nextTeam: 0 });
+    expect(j.params.seed).toBe('s2');
+    expect(j.names).toEqual(['Bob', 'Ann']);
+    expect(await a.rematch(m.id, fresh, 'Ann')).toMatchObject({ id: r.id, status: 'active' });
+    expect(await code(c.rematch(m.id, fresh, 'Cy'))).toBe('notFound');
+  });
+
+  it('cancelling an offered rematch lets either player offer again', async () => {
+    const { a, b } = pair();
+    const m = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(m.code, 'Bob');
+    await a.resign(m.id);
+    const r = await a.rematch(m.id, PARAMS, 'Ann');
+    await a.cancel(r.id);
+    expect(await b.getMatch(m.id)).toMatchObject({ rematch: null, rematchBy: null });
+    const again = await b.rematch(m.id, PARAMS, 'Bob');
+    expect(again).toMatchObject({ status: 'open', myTeam: 1 });
+    expect(await a.getMatch(m.id)).toMatchObject({ rematch: again.id, rematchBy: 0 });
+  });
+
   it('cleans team names', () => {
     expect(cleanName('  Very long crew name here  ')).toBe('Very long crew n');
     expect(cleanName('a\u0007b\n')).toBe('ab');
@@ -181,6 +221,32 @@ describe('SupabaseOnline', () => {
     expect(signups).toBe(1);
   });
 
+  it('calls rematch_match and reads the rematch fields of a match', async () => {
+    const { f, calls } = fakeFetch((path) => {
+      if (path === '/auth/v1/signup')
+        return [200, { access_token: 'AT', refresh_token: 'RT', user: { id: 'me' } }];
+      if (path === '/rest/v1/rpc/rematch_match') return [200, { ...VIEW, status: 'open' }];
+      if (path === '/rest/v1/rpc/get_match')
+        return [200, { ...VIEW, status: 'finished', rematch: 'u2', rematchBy: 1 }];
+      return [404, {}];
+    });
+    const s = new SupabaseOnline({
+      url: 'https://x.supabase.co',
+      anonKey: 'A',
+      storage: createMemoryStorage(),
+      fetch: f,
+    });
+    expect(await s.rematch('u0', PARAMS, 'Bob')).toMatchObject({ status: 'open', rematch: null });
+    expect(calls.find((c) => c.path === '/rest/v1/rpc/rematch_match')?.body).toEqual({
+      match_id: 'u0',
+      params: PARAMS,
+      name: 'Bob',
+    });
+    const old = await s.getMatch('u0');
+    expect(old).toMatchObject({ rematch: 'u2', rematchBy: 1 });
+    expect(rematchOffered(old)).toBe(true);
+  });
+
   it('refreshes an expired session and keeps the same player', async () => {
     const storage = createMemoryStorage();
     await storage.set(SUPABASE_SESSION_KEY, {
@@ -228,9 +294,9 @@ describe('SupabaseOnline', () => {
 describe('selectOnline', () => {
   const storage = createMemoryStorage();
   it('uses Supabase when configured, the mock on the web, nothing fake on a device', () => {
-    expect(selectOnline({ native: true, url: 'https://x', anonKey: 'k', storage })).toBeInstanceOf(
-      SupabaseOnline,
-    );
+    expect(
+      selectOnline({ native: true, url: 'https://x.supabase.co', anonKey: 'k', storage }),
+    ).toBeInstanceOf(SupabaseOnline);
     expect(selectOnline({ native: true, storage })).toBeInstanceOf(UnavailableOnline);
     expect(
       selectOnline({ native: false, storage, mockDb: kv(), mockIdentity: kv() }),
@@ -238,7 +304,7 @@ describe('selectOnline', () => {
     expect(
       selectOnline({
         native: false,
-        url: 'https://x',
+        url: 'https://x.supabase.co',
         anonKey: 'k',
         storage,
         forceMock: true,

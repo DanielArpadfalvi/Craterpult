@@ -23,6 +23,10 @@ export interface OnlineMatch {
   resigned: number | null;
   /** Last change, ms since the epoch (sorting only). */
   updatedAt: number;
+  /** Id of the rematch offered after this (finished) match, or null. */
+  rematch: string | null;
+  /** Team (in this match) that offered the rematch, or null. */
+  rematchBy: number | null;
 }
 
 export type OnlineErrorCode =
@@ -67,6 +71,12 @@ export interface OnlineService {
   getTurns(id: string, from: number): Promise<TurnRecord[]>;
   submitTurn(id: string, turn: TurnRecord, outcome: TurnOutcome): Promise<OnlineMatch>;
   resign(id: string): Promise<OnlineMatch>;
+  /**
+   * Rematch of a finished match, with fresh `params` (same rules as `createMatch`, but only the
+   * old opponent may join). The first player to ask opens it and waits; when the opponent asks
+   * too they join it and move first. Returns the rematch.
+   */
+  rematch(id: string, params: OnlineParams, name: string): Promise<OnlineMatch>;
   /** Removes an open match nobody joined yet (creator only). */
   cancel(id: string): Promise<void>;
   /** Device token for "your turn" pushes (FCM / APNs) and the language of their text. */
@@ -75,6 +85,11 @@ export interface OnlineService {
 
 export function isMyTurn(m: OnlineMatch): boolean {
   return m.status === 'active' && m.nextTeam === m.myTeam;
+}
+
+/** The opponent offered a rematch of this match that the player has not taken up yet. */
+export function rematchOffered(m: OnlineMatch): boolean {
+  return m.status === 'finished' && m.rematch !== null && m.rematchBy !== m.myTeam;
 }
 
 export function opponentName(m: OnlineMatch): string | null {

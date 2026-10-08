@@ -2,7 +2,7 @@ import { ONLINE_MAP_STYLES, ONLINE_TURN_SECONDS } from '../core/online';
 import type { GameActions } from '../game/app';
 import { onlineCreateNeedsFull } from '../game/entitlement';
 import type { UiState } from '../game/state';
-import { isMyTurn, opponentName, type OnlineMatch } from '../net/types';
+import { isMyTurn, opponentName, rematchOffered, type OnlineMatch } from '../net/types';
 import { t, type TranslationKey } from '../i18n';
 import { Page, Section } from './Page';
 import { FullVersionBadge, fvLock } from './Paywall';
@@ -18,10 +18,13 @@ const TEAM_SIZES = [2, 3, 4] as const;
 export function OnlineScreen({ s, actions }: Props) {
   const o = s.online;
   const invite = o.invite ? o.matches.find((m) => m.id === o.invite) : undefined;
-  const mine = o.matches.filter((m) => m.status === 'active' && isMyTurn(m));
+  // A rematch the opponent offered waits on the player like a turn does.
+  const mine = o.matches.filter((m) => (m.status === 'active' && isMyTurn(m)) || rematchOffered(m));
   const theirs = o.matches.filter((m) => m.status === 'active' && !isMyTurn(m));
   const open = o.matches.filter((m) => m.status === 'open');
-  const finished = o.matches.filter((m) => m.status === 'finished').slice(0, 5);
+  const finished = o.matches
+    .filter((m) => m.status === 'finished' && !rematchOffered(m))
+    .slice(0, 5);
   return (
     <Page
       title={t('online.title')}
@@ -274,12 +277,34 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
           {confirming ? t('online.resignConfirm') : t('online.resign')}
         </button>
       )}
-      {m.status !== 'open' && (
-        <span class={`online-pill${mine ? ' is-mine' : ''}`}>
-          {m.status === 'active' ? (mine ? t('online.play') : '…') : t('online.view')}
-        </span>
+      {m.status === 'finished' && <RematchButton m={m} s={s} actions={actions} />}
+      {m.status === 'active' && (
+        <span class={`online-pill${mine ? ' is-mine' : ''}`}>{mine ? t('online.play') : '…'}</span>
       )}
     </div>
+  );
+}
+
+/** Rematch of a finished match: offer one, take up the opponent's offer, or show it is sent. */
+function RematchButton({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: GameActions }) {
+  if (m.rematch !== null && !rematchOffered(m))
+    return (
+      <small class="online-rematch-sent" data-testid="online-rematch-sent">
+        {t('online.rematchSent')}
+      </small>
+    );
+  const offered = rematchOffered(m);
+  return (
+    <button
+      type="button"
+      class={`btn ${offered ? 'btn-primary' : 'btn-ghost'} online-rematch`}
+      data-testid="online-rematch"
+      data-offered={offered ? '1' : '0'}
+      disabled={s.online.busy}
+      onClick={() => void actions.onlineRematch(m.id)}
+    >
+      {offered ? t('online.rematchAccept') : t('over.rematch')}
+    </button>
   );
 }
 

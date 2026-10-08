@@ -371,9 +371,20 @@ function OverOverlay({ s, actions }: ViewProps) {
     <div class="overlay" data-testid="game-over">
       <div class="panel" style={winner ? { '--team': winner.color } : undefined}>
         <h2 class="win-title">{winner ? t('over.win', { team: winner.name }) : t('over.draw')}</h2>
+        {s.mode === 'online' && s.online.matchId && (
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-testid="online-over-rematch"
+            disabled={s.online.busy}
+            onClick={() => void actions.onlineRematch(s.online.matchId as string)}
+          >
+            {t('over.rematch')}
+          </button>
+        )}
         <button
           type="button"
-          class="btn btn-primary"
+          class={`btn ${s.mode === 'online' ? 'btn-ghost' : 'btn-primary'}`}
           data-testid="rematch"
           onClick={() => actions.rematch()}
         >
