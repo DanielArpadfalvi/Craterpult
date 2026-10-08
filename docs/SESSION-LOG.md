@@ -18,7 +18,7 @@ here, and continue from its **Next** line.
 - `678075e` + `7ab9929` T9.7 privacy page online section (EN/HU, published to craterpult-site `a2a0715`), daily data purge, 1.1 store privacy answers (`docs/store-privacy-answers.md` 7).
 - `6526ad8` T9.8 fix: resigned / timed-out / unwatched online matches now count in the stats.
 - `3b68b4b` CI: Android pre-release re-creation retries (fixed a red run on `842820f`).
-- T10.5 public site in DE/ES/PT (index, join, support, privacy) + language switch for 5 languages; published to craterpult-site (commit: see `git log`, "T10.5").
+- `29b1283` T10.5 public site in DE/ES/PT (index, join, support, privacy) + language switch for 5 languages; published to craterpult-site `44b7a34`.
 - `8d2a132` + `1b27c26` T10.4 store screenshots in every listing language (DE/PT checked on Android). Note: `1b27c26` fixed a typecheck error that `8d2a132` pushed – gate commits on the exit code of `npm run check`, never on grep output.
 - `7b31123` T10.3 Brazilian Portuguese (`pt`) + wrapping language picker.
 - `5091b6a` T10.2 Spanish (`es`): dictionaries, push texts, store listing, e2e layout checks.
