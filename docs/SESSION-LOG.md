@@ -11,7 +11,7 @@ here, and continue from its **Next** line.
 **Mode:** autonomous, directly on `main`, merge/push after every task (owner's instruction).
 
 **Done (all on `main`, CI green unless noted):**
-- T9.9 "Delete my online data" in Settings (GDPR self-service, RPC `delete_my_data`, migration `20261009100000`), privacy page updated in 5 languages and republished (commit: see `git log`, "T9.9").
+- T9.9 "Delete my online data" in Settings (GDPR self-service, RPC `delete_my_data`, migration `20261009100000`), privacy page updated in 5 languages and republished – `73e1155`, site `9332cfd`.
 - `7e00277` T9.3 online rematch (+ merged the old `qa-pass-1007` branch).
 - `fa846ee` T9.4 72-hour reply limit, "Claim the win".
 - `1d4eb07` T9.5 turn-start signal: leaving mid-turn continues the turn / forfeits it without a local record.
