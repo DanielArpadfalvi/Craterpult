@@ -170,6 +170,7 @@ export const en = {
   'lang.en': 'English',
   'lang.hu': 'Magyar',
   'lang.de': 'Deutsch',
+  'lang.es': 'Español',
   'settings.title': 'Settings',
   'settings.language': 'Language',
   'settings.sectionFeel': 'Sound & feel',

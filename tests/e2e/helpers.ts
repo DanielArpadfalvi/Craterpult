@@ -44,7 +44,7 @@ export const summary = (page: Page) => call(page, (a) => a.summary());
 export async function boot(
   page: Page,
   query = '',
-  lang: 'en' | 'hu' | 'de' = 'en',
+  lang: 'en' | 'hu' | 'de' | 'es' = 'en',
 ): Promise<string[]> {
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

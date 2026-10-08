@@ -252,7 +252,7 @@ test('Campaign locks in Hungarian', async ({ page }) => {
 
 test.describe('paywall on a 360x640 phone', () => {
   test.use({ viewport: { width: 360, height: 640 } });
-  for (const lang of ['en', 'hu', 'de'] as const) {
+  for (const lang of ['en', 'hu', 'de', 'es'] as const) {
     test(`buy, restore and the legal links are above the fold (${lang})`, async ({ page }) => {
       const errors = await boot(page, '', lang);
       await page.getByTestId('open-full-version').click();

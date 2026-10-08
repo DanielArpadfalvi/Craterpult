@@ -18,6 +18,7 @@ describe('planNotify (notify-turn edge function)', () => {
     expect(p.text('en')).toBe('Bob made a move – your turn!');
     expect(p.text('hu')).toBe('Bob lépett – te jössz!');
     expect(p.text('de')).toBe('Bob hat gezogen – du bist dran!');
+    expect(p.text('es')).toBe('Bob ha movido: ¡te toca!');
     expect(p.text('xx')).toBe(p.text('en'));
   });
 

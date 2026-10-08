@@ -340,7 +340,7 @@ test('settings About: privacy, support, restore purchases and version', async ({
 
 test.describe('menu at 360x640', () => {
   test.use({ viewport: { width: 360, height: 640 } });
-  for (const lang of ['en', 'hu', 'de'] as const) {
+  for (const lang of ['en', 'hu', 'de', 'es'] as const) {
     test(`buttons keep their captions inside, nothing overlaps (${lang})`, async ({ page }) => {
       const errors = await boot(page, '&today=2026-10-06', lang);
       const problems = await page.evaluate(() => {
@@ -380,7 +380,7 @@ for (const vp of [
 ]) {
   test.describe(`screens at ${vp.width}x${vp.height}`, () => {
     test.use({ viewport: vp });
-    for (const lang of ['en', 'hu', 'de'] as const) {
+    for (const lang of ['en', 'hu', 'de', 'es'] as const) {
       test(`new screens in ${lang.toUpperCase()}`, async ({ page }) => {
         test.setTimeout(90_000);
         await seedSave(page);

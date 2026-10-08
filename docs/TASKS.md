@@ -54,6 +54,6 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 
 ## M10 – Localization
 - [x] T10.1 German – `src/i18n/de.ts` (+ missions/paywall/online), `LANGUAGES` + device-language detection (`de-*` → German), settings picker from the list, every dictionary names every language, legacy language import for any language, push texts per language (`message.ts`, migration `20261008220000_push_languages.sql`: en/hu/de/es/pt), German store listing `store/listing/de` (+ DE banned words in `store:check`), e2e layout checks at 360 px in DE (menu, screens, paywall)
-- [ ] T10.2 Spanish (es)
+- [x] T10.2 Spanish (es) – dictionaries, push texts, store listing `store/listing/es` (+ ES banned words), e2e layout checks in ES
 - [ ] T10.3 Brazilian Portuguese (pt)
 - [ ] T10.4 Store screenshots per language (DE/ES/PT captions in `scripts/store-frames.ts`)
