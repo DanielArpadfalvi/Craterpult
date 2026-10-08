@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SCENES, STORE_LANGS, STORE_LOCALE } from '../../../scripts/store-frames';
