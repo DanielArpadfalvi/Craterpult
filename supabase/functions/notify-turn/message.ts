@@ -18,34 +18,44 @@ export interface NotifyPlan {
   text(lang: string): string;
 }
 
+interface Texts {
+  turn(from: string): string;
+  reminder(from: string): string;
+  rematch(from: string): string;
+}
+
+/** Push texts by the app language the token was registered with (unknown → English). */
+const TEXTS: Record<string, Texts> = {
+  en: {
+    turn: (f) => `${f} made a move – your turn!`,
+    reminder: (f) => `12 hours left to move against ${f}.`,
+    rematch: (f) => `${f} wants a rematch!`,
+  },
+  hu: {
+    turn: (f) => `${f} lépett – te jössz!`,
+    reminder: (f) => `Még 12 órád van lépni ${f} ellen.`,
+    rematch: (f) => `${f} visszavágót kér!`,
+  },
+  de: {
+    turn: (f) => `${f} hat gezogen – du bist dran!`,
+    reminder: (f) => `Noch 12 Stunden für deinen Zug gegen ${f}.`,
+    rematch: (f) => `${f} will eine Revanche!`,
+  },
+};
+
+const texts = (lang: string): Texts => TEXTS[lang] ?? (TEXTS.en as Texts);
+
 /** The push to send for `kind`, or null when the match no longer calls for it. */
 export function planNotify(kind: NotifyKind, m: NotifyMatch): NotifyPlan | null {
   if (kind === 'rematch') {
     if (m.status !== 'finished' || m.rematch === null || m.rematch_by === null) return null;
     const to = m.players[1 - m.rematch_by];
     const from = m.names[m.rematch_by] ?? '?';
-    return to
-      ? {
-          to,
-          text: (lang) => (lang === 'hu' ? `${from} visszavágót kér!` : `${from} wants a rematch!`),
-        }
-      : null;
+    return to ? { to, text: (lang) => texts(lang).rematch(from) } : null;
   }
   if (m.status !== 'active' || m.next_team < 0) return null;
   const to = m.players[m.next_team];
   const from = m.names[1 - m.next_team] ?? '?';
   if (!to) return null;
-  if (kind === 'reminder')
-    return {
-      to,
-      text: (lang) =>
-        lang === 'hu'
-          ? `Még 12 órád van lépni ${from} ellen.`
-          : `12 hours left to move against ${from}.`,
-    };
-  return {
-    to,
-    text: (lang) =>
-      lang === 'hu' ? `${from} lépett – te jössz!` : `${from} made a move – your turn!`,
-  };
+  return { to, text: (lang) => texts(lang)[kind](from) };
 }

@@ -1,17 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { en } from '../../../src/i18n/en';
-import { DICTIONARIES, format } from '../../../src/i18n';
+import { deviceLanguage, DICTIONARIES, format, LANGUAGES } from '../../../src/i18n';
 import { MISSIONS } from '../../../src/core/campaign';
 import { DAILY_MODIFIERS } from '../../../src/core/daily';
 import { MAP_STYLES } from '../../../src/core/mapgen';
 
 describe('i18n', () => {
-  it('has every key translated in Hungarian with the same placeholders', () => {
-    for (const key of Object.keys(en) as (keyof typeof en)[]) {
-      const hu = DICTIONARIES.hu[key];
-      expect(hu, key).toBeTruthy();
-      const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(',');
-      expect(ph(hu), key).toBe(ph(en[key]));
+  it('has every key translated in every language with the same placeholders', () => {
+    const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(',');
+    for (const lang of LANGUAGES)
+      for (const key of Object.keys(en) as (keyof typeof en)[]) {
+        const text = DICTIONARIES[lang][key];
+        expect(text, `${lang} ${key}`).toBeTruthy();
+        expect(ph(text), `${lang} ${key}`).toBe(ph(en[key]));
+      }
+  });
+
+  it('names every language in its own language, the same in every dictionary', () => {
+    for (const lang of LANGUAGES)
+      for (const other of LANGUAGES)
+        expect(DICTIONARIES[other][`lang.${lang}`]).toBe(DICTIONARIES[lang][`lang.${lang}`]);
+  });
+
+  it('picks the device language when the game has it, else English', () => {
+    const nav = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const as = (language: string) => {
+      Object.defineProperty(globalThis, 'navigator', { value: { language }, configurable: true });
+      return deviceLanguage();
+    };
+    try {
+      expect(as('de-AT')).toBe('de');
+      expect(as('hu')).toBe('hu');
+      expect(as('en-GB')).toBe('en');
+      expect(as('fr-FR')).toBe('en');
+      expect(as('dex')).toBe('en');
+    } finally {
+      if (nav) Object.defineProperty(globalThis, 'navigator', nav);
     }
   });
 

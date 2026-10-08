@@ -51,3 +51,9 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] T9.7 Online privacy & data retention – privacy page EN/HU online section (Supabase processor, data list, purpose/legal basis, retention, FCM/APNs, deletion request by team name + invite code), daily `pg_cron` purge `purge_old_data` (migration `20261008200000_retention.sql`: finished 90 d, unjoined invites 30 d, abandoned 180 d, push tokens 180 d, orphan anonymous users), `docs/store-privacy-answers.md` 7 (Data safety / App Privacy / manifest / age rating for 1.1); SQL checked on PGlite
 - [x] T9.8 Fix: online matches that ended by resignation / time-out (or were never watched to the end) were missing from the stats – the controller counts every finished match once on first sight (list or live), regression test `tests/unit/game/online.test.ts`
 - [ ] T9.2 Owner: Supabase project (anonymous sign-ins, migrations, `VITE_SUPABASE_URL/ANON_KEY`), optional push (Firebase `google-services.json` + FCM service account, APNs key, Vault secrets, `notify-turn` deploy, `VITE_PUSH_ENABLED=1`), two-device match test, ~~publish the updated privacy page~~ (done 2026-10-08, site `a2a0715`), fill the store data forms per `docs/store-privacy-answers.md` 7 (see `docs/ONLINE.md` 4)
+
+## M10 – Localization
+- [x] T10.1 German – `src/i18n/de.ts` (+ missions/paywall/online), `LANGUAGES` + device-language detection (`de-*` → German), settings picker from the list, every dictionary names every language, legacy language import for any language, push texts per language (`message.ts`, migration `20261008220000_push_languages.sql`: en/hu/de/es/pt), German store listing `store/listing/de` (+ DE banned words in `store:check`), e2e layout checks at 360 px in DE (menu, screens, paywall)
+- [ ] T10.2 Spanish (es)
+- [ ] T10.3 Brazilian Portuguese (pt)
+- [ ] T10.4 Store screenshots per language (DE/ES/PT captions in `scripts/store-frames.ts`)

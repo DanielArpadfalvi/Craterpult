@@ -1,6 +1,7 @@
 /** Player settings, persisted inside the save (see `save.ts`). */
+import { LANGUAGES, type Language } from '../i18n';
 
-export type LanguageSetting = 'auto' | 'en' | 'hu';
+export type LanguageSetting = 'auto' | Language;
 export type AimPreview = 'short' | 'long';
 
 export const TURN_TIMES = [30, 45, 60, 90] as const;
@@ -42,7 +43,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   const r = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const d = DEFAULT_SETTINGS;
   return {
-    language: oneOf<LanguageSetting>(['auto', 'en', 'hu'], r.language, d.language),
+    language: oneOf<LanguageSetting>(['auto', ...LANGUAGES], r.language, d.language),
     sound: bool(r.sound, d.sound),
     haptics: bool(r.haptics, d.haptics),
     turnTime: oneOf<TurnTime>(TURN_TIMES, r.turnTime, d.turnTime),
@@ -55,7 +56,7 @@ export function sanitizeSettings(raw: unknown): Settings {
 /** Everything a settings change can touch; implemented by the app (mocked in tests). */
 export interface SettingsTargets {
   /** null = follow the device language. */
-  setLanguage(language: 'en' | 'hu' | null): void;
+  setLanguage(language: Language | null): void;
   setSound(on: boolean): void;
   setReducedMotion(on: boolean): void;
   setLargeText(on: boolean): void;

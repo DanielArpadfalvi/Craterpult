@@ -50,7 +50,7 @@ const TRADEMARKS: readonly RegExp[] = [
   /artillery duel/i,
 ];
 
-/** The free version is a full game, not a cut-down one: these words are banned (EN + HU). */
+/** The free version is a full game, not a cut-down one: these words are banned (EN, HU, DE). */
 const FREE_VERSION_WORDS: readonly RegExp[] = [
   /\blite\b/i,
   /\bdemo\b/i,
@@ -59,10 +59,21 @@ const FREE_VERSION_WORDS: readonly RegExp[] = [
   /próbaverzió/i,
   /próbaidő/i,
   /\bfreemium\b/i,
+  /testversion/i,
+  /probeversion/i,
+  /\bdemoversion/i,
 ];
 
 /** Things the game does not have; claiming them would be false (and off-model). */
-const OFF_MODEL: readonly RegExp[] = [/\bsubscribe\b/i, /\bgems?\b/i, /\bcoins?\b/i, /\bvip\b/i];
+const OFF_MODEL: readonly RegExp[] = [
+  /\bsubscribe\b/i,
+  /\bgems?\b/i,
+  /\bcoins?\b/i,
+  /\bvip\b/i,
+  /\babonnier/i,
+  /\bmünzen\b/i,
+  /\bedelsteine?\b/i,
+];
 
 const read = (lang: string, file: string): string =>
   readFileSync(join(ROOT, lang, file), 'utf8')
@@ -75,8 +86,8 @@ const langs = readdirSync(ROOT, { withFileTypes: true })
   .map((d) => d.name)
   .sort();
 
-if (langs.join(',') !== 'en,hu')
-  problems.push(`expected languages en,hu, found ${langs.join(',')}`);
+if (langs.join(',') !== 'de,en,hu')
+  problems.push(`expected languages de,en,hu, found ${langs.join(',')}`);
 
 for (const lang of langs) {
   const rows: string[] = [];

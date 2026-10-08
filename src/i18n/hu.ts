@@ -170,6 +170,7 @@ export const hu: Record<TranslationKey, string> = {
   'menu.start': 'Meccs indítása',
   'lang.en': 'English',
   'lang.hu': 'Magyar',
+  'lang.de': 'Deutsch',
   'settings.title': 'Beállítások',
   'settings.language': 'Nyelv',
   'settings.sectionFeel': 'Hang és rezgés',

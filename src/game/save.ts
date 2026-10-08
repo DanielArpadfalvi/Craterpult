@@ -1,5 +1,6 @@
 import type { Difficulty } from '../core/ai/bot';
 import { MAP_STYLES, type MapStyle } from '../core/mapgen';
+import { isLanguage } from '../i18n';
 import { DEFAULT_PROFILE, sanitizeProfile, type Profile } from './profile';
 import { DEFAULT_SETTINGS, sanitizeSettings, type Settings } from './settings';
 import { createStats, sanitizeStats, type Stats } from './stats';
@@ -194,7 +195,7 @@ export function importLegacyKeys(
     save.settings.sound = legacy.muted !== '1';
     changed = true;
   }
-  if (legacy.lang === 'en' || legacy.lang === 'hu') {
+  if (isLanguage(legacy.lang)) {
     save.settings.language = legacy.lang;
     changed = true;
   }

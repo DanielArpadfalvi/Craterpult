@@ -169,6 +169,7 @@ export const en = {
   'menu.start': 'Start match',
   'lang.en': 'English',
   'lang.hu': 'Magyar',
+  'lang.de': 'Deutsch',
   'settings.title': 'Settings',
   'settings.language': 'Language',
   'settings.sectionFeel': 'Sound & feel',

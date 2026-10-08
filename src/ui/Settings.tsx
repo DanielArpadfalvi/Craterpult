@@ -4,7 +4,7 @@ import { PRIVACY_URL, SUPPORT_URL } from '../game/links';
 import { TURN_TIMES, type Settings } from '../game/settings';
 import type { UiState } from '../game/state';
 import { APP_VERSION } from '../game/version';
-import { getLanguage, t } from '../i18n';
+import { getLanguage, LANGUAGES, t } from '../i18n';
 import { ChoiceRow, Page, Section, ToggleRow } from './Page';
 
 interface Props {
@@ -21,10 +21,7 @@ export function SettingsScreen({ s, actions }: Props) {
         <ChoiceRow
           label={t('settings.language')}
           hideLabel
-          options={[
-            { value: 'en', label: t('lang.en') },
-            { value: 'hu', label: t('lang.hu') },
-          ]}
+          options={LANGUAGES.map((l) => ({ value: l, label: t(`lang.${l}`) }))}
           value={st.language === 'auto' ? getLanguage() : st.language}
           onChange={(language) => set({ language })}
           testId="lang"

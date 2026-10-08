@@ -1,17 +1,24 @@
+import { de } from './de';
 import { en, type TranslationKey } from './en';
 import { hu } from './hu';
 
 export type { TranslationKey };
-export type Language = 'en' | 'hu';
+/** Interface languages, in the order the settings list them. */
+export const LANGUAGES = ['en', 'hu', 'de'] as const;
+export type Language = (typeof LANGUAGES)[number];
 
-const DICTS: Record<Language, Record<TranslationKey, string>> = { en, hu };
+export function isLanguage(x: unknown): x is Language {
+  return (LANGUAGES as readonly unknown[]).includes(x);
+}
+
+const DICTS: Record<Language, Record<TranslationKey, string>> = { en, hu, de };
 let current: Language = deviceLanguage();
 const listeners = new Set<() => void>();
 
-/** The device / browser language (Hungarian or English). The choice is stored in the save. */
+/** The device / browser language when the game has it, else English. */
 export function deviceLanguage(): Language {
-  const nav = globalThis.navigator?.language ?? 'en';
-  return nav.toLowerCase().startsWith('hu') ? 'hu' : 'en';
+  const nav = (globalThis.navigator?.language ?? 'en').toLowerCase();
+  return LANGUAGES.find((l) => nav === l || nav.startsWith(`${l}-`)) ?? 'en';
 }
 
 export function getLanguage(): Language {

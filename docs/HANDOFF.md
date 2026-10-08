@@ -1,6 +1,6 @@
 # Craterpult – átadási jegyzet (hideg indulás lokális sessionből)
 
-Utolsó frissítés: 2026-10-08 (T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push: visszavágó + emlékeztető, T9.7 adatvédelem/megőrzés, T9.8 online statisztika-javítás – a main-en). **Munkamód (tulajdonos kérése): közvetlenül a main-re dolgozz, és amint egy feladat kész, merge/push a main-re.** A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
+Utolsó frissítés: 2026-10-08 (T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push: visszavágó + emlékeztető, T9.7 adatvédelem/megőrzés, T9.8 online statisztika-javítás, T10.1 német nyelv – a main-en). **A munkamenetek kivonata: `docs/SESSION-LOG.md` (legfelső bejegyzés „Next” sora = a következő lépés).** **Munkamód (tulajdonos kérése): közvetlenül a main-re dolgozz, és amint egy feladat kész, merge/push a main-re.** A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
 
 ## 1. Hol tart a projekt
 
@@ -19,7 +19,7 @@ Körökre osztott artillery (Worms-szerű, saját IP) portré mobilra: rombolhat
 | M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA T8.1–T8.3) | ✅ kód kész; T8.4 tulajdonosi lépések: RevenueCat + sandbox vásárlás eszközön |
 | M9 1.1 online (aszinkron meccs) | ✅ kód kész, mock backenddel tesztelve; T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push-bővítés, T9.7 adatvédelem kész; T9.2: Supabase-projekt + push-kulcsok (tulajdonos), két eszközös teszt |
 
-Tesztek: 305 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
+Tesztek: 307 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
 
 ## 2. Félkész munkák és ágak
 
@@ -45,7 +45,8 @@ Tesztek: 305 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `onlin
 1. CI (CI, Android, iOS) ellenőrzése a legutóbbi push után.
 2. Tulajdonos: RevenueCat (T8.4), Supabase + push (T9.2) – utána valódi eszközös teszt (vásárlás, két eszközös online meccs).
 3. 1.0 kiadás a store-okba (`docs/RELEASE.md`, checklisták); 1.1-hez adatvédelmi oldal + kérdőív frissítése.
-4. Online továbbfejlesztés (ötletek): barátlista / legutóbbi ellenfelek gyors meghívása, online statisztika ellenfelenként. (Kész: visszavágó T9.3, időkorlát T9.4, kör-kezdés jelzés T9.5, push-bővítés T9.6.)
+4. Lokalizáció: T10.2 spanyol, T10.3 brazil portugál, T10.4 nyelvenkénti store-screenshotok (minta: T10.1 német).
+5. Online továbbfejlesztés (ötletek): barátlista / legutóbbi ellenfelek gyors meghívása, online statisztika ellenfelenként. (Kész: visszavágó T9.3, időkorlát T9.4, kör-kezdés jelzés T9.5, push-bővítés T9.6.)
 
 ## 5. Dashboard
 

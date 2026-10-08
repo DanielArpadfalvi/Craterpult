@@ -41,7 +41,11 @@ export const call = <T>(page: Page, fn: (api: Api) => T) =>
 
 export const summary = (page: Page) => call(page, (a) => a.summary());
 
-export async function boot(page: Page, query = '', lang: 'en' | 'hu' = 'en'): Promise<string[]> {
+export async function boot(
+  page: Page,
+  query = '',
+  lang: 'en' | 'hu' | 'de' = 'en',
+): Promise<string[]> {
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(e.message));

@@ -23,7 +23,7 @@ describe('settings', () => {
     expect(sanitizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(
       sanitizeSettings({
-        language: 'de',
+        language: 'xx',
         sound: false,
         haptics: 'yes',
         turnTime: 50,
@@ -37,6 +37,7 @@ describe('settings', () => {
       reducedMotion: true,
       aimPreview: 'long',
     });
+    expect(sanitizeSettings({ language: 'de' }).language).toBe('de');
     expect(sanitizeSettings({ turnTime: 90, language: 'hu' })).toMatchObject({
       turnTime: 90,
       language: 'hu',
