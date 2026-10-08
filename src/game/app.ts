@@ -82,7 +82,13 @@ import { createStore, type Store } from './store';
 import { hudPatch } from './hud';
 import { ownedMapStyles } from './entitlement';
 import { createMonetization, type MonetizationActions } from './monetization';
-import { createOnline, inviteCodeFromUrl, type OnlineActions, type OnlineUi } from './online';
+import {
+  createOnline,
+  inviteCodeFromUrl,
+  pushTarget,
+  type OnlineActions,
+  type OnlineUi,
+} from './online';
 import { OnlinePlay, type OnlineResume } from './onlinePlay';
 
 export interface GameActions extends MonetizationActions, OnlineActions {
@@ -1402,7 +1408,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   if (params.has('join')) openInvite(inviteCodeFromUrl(location.search));
   platform.push.onOpen((data) => {
     if (store.get().screen === 'playing') return;
-    if (data.matchId) void actions.onlineOpen(data.matchId);
+    const match = pushTarget(data);
+    if (match) void actions.onlineOpen(match);
     else actions.openOnline();
   });
 

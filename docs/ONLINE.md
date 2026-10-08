@@ -25,6 +25,7 @@
 | Kör | aki jön | a játék tickenként rögzíti a parancsokat (`TurnRecorder`), a kör végén `submit_turn(id, {n, team, from, to, cmds, hash}, next_team, winner)`. Hiba esetén tartós „outbox” (`craterpult.online.outbox`) és 8 mp-es újrapróbálás. |
 | Ellenfél köre | a másik | a meccs újraépül a tárolt körökből; az ellenfél legutóbbi köre **élőben lejátszódik** (átugorható), a végén állapot-hash ellenőrzés. Eltérés → „desync” képernyő, a meccs nem folytatható. |
 | Várakozás | | 4 mp-es lekérdezés, amíg a meccs nyitva van; push, ha be van kapcsolva. |
+| Push-fajták | szerver | `turn` (csatlakozás / beküldött kör után a következő lépőnek), `rematch` (visszavágó-ajánlat a régi ellenfélnek; koppintásra a lista nyílik), `reminder` (12 órával a 72 órás lejárat előtt, körönként egyszer; óránkénti `pg_cron` job `craterpult-remind` → `remind_slow_movers()`). Szövegek EN/HU: `supabase/functions/notify-turn/message.ts`. |
 | Vége | | a győztes / döntetlen a beküldő kliens szerint (`outcomeOf`), a másik kliens a visszajátszással ellenőrzi; feladás: `resign_match`. |
 | Kör-kezdés | aki jön | a kör első parancsánál (lövés, mozgás) `start_turn(id, n)` → `started_turn` (a válaszórát nem állítja). A félkész kört a kliens folyamatosan menti (`craterpult.online.partial`, parancsonként és másodpercenként, kilépéskor). Újranyitáskor: van helyi mentés → a kör **onnan folytatódik** (ugyanaz a lövés, ugyanaz az eredmény; az ellenfél körét nem nézi újra); nincs mentés, de a szerver szerint elkezdődött (másik telefon, törölt adatok) → a kör **kimarad** (kényszerített `skip`). |
 | Időkorlát | a váró fél | minden lépésre **72 óra** (`REPLY_LIMIT_HOURS`, az SQL-ben is): az aktív meccs utolsó változásától számít (csatlakozás / beküldött kör). A listában „még X ideje van / még X a lépésre”; lejárta után a váró fél „Győzelem kérése” gombja (lista vagy várakozó kártya) → `claim_timeout(id)`; a szerver órája dönt (`conflict`, ha még korai). Az eredmény `timedOut` = a kifutott csapat, a győztes a másik. |
@@ -40,8 +41,7 @@ Ismert korlátok (1.1):
 - A kör-kezdés védelem kliensoldali: aki a jelzés elküldése előtt (offline) lép ki ÉS törli a helyi adatot,
   még újrakezdheti a kört. A félkész kör a mentés óta eltelt (legfeljebb ~1 mp) idejét visszakapja.
 - A győztest a kliens állítja; a csalást a másik kliens hash-ellenőrzése jelzi, a szerver nem dönt.
-- A válasz-időkorlát fix 72 óra (nem állítható); lejárta után sem ér véget magától, a várónak kell kérnie a győzelmet. Nincs push-emlékeztető a lejárat előtt.
-- A visszavágó-ajánlatról nem megy push (csak a lista mutatja; push az elfogadáskor, mint csatlakozáskor).
+- A válasz-időkorlát fix 72 óra (nem állítható); lejárta után sem ér véget magától, a várónak kell kérnie a győzelmet.
 
 ## 3. Kód
 
@@ -73,6 +73,8 @@ Ismert korlátok (1.1):
    - `supabase secrets set NOTIFY_SECRET=<véletlen>`; `supabase functions deploy notify-turn --no-verify-jwt`.
    - Vault (SQL): `select vault.create_secret('https://<ref>.supabase.co/functions/v1/notify-turn', 'notify_url');`
      és `select vault.create_secret('<ugyanaz a NOTIFY_SECRET>', 'notify_secret');`
+   - Emlékeztető: a `pg_cron` bővítmény kell (Database → Extensions; a `20261008180000` migráció
+     bekapcsolja és ütemezi). Ellenőrzés: `select * from cron.job;`
    - Build: `VITE_PUSH_ENABLED=1` (enélkül a push ki van kapcsolva – Firebase-konfig nélkül az Android
      `register()` összeomlana).
 5. Adatvédelem: az online mód egy anonim azonosítót, a csapatnevet, a lejátszott köröket és (push esetén)

@@ -1,5 +1,6 @@
-// Craterpult "your turn" push (M9). Called by the `notify_turn` trigger (pg_net) whenever a match
-// is joined or a turn is stored; sends one notification to the player who moves next.
+// Craterpult pushes (M9). Called by the `notify_turn` trigger (pg_net) whenever a match is joined,
+// a turn is stored ("your turn") or a rematch is offered, and hourly by `remind_slow_movers`
+// (pg_cron) 12 hours before a reply runs out. Who gets which text: `message.ts`.
 // Secrets (supabase secrets set …):
 //   NOTIFY_SECRET            shared with the trigger (vault secret `notify_secret`)
 //   FCM_SERVICE_ACCOUNT      Firebase service account JSON (Android)
@@ -7,17 +8,15 @@
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by the platform.
 // Deno runtime (Supabase Edge Functions); not part of the app's TypeScript build.
 
+import { planNotify, type NotifyKind, type NotifyMatch } from './message.ts';
+
 interface Payload {
   match_id: string;
+  kind?: NotifyKind;
 }
 
-interface Match {
+interface Match extends NotifyMatch {
   id: string;
-  status: string;
-  players: (string | null)[];
-  names: (string | null)[];
-  next_team: number;
-  winner: number | null;
 }
 
 const env = (k: string): string => Deno.env.get(k) ?? '';
@@ -97,6 +96,7 @@ interface Note {
   title: string;
   body: string;
   matchId: string;
+  kind: NotifyKind;
 }
 
 async function sendFcm(tokens: string[], note: Note): Promise<void> {
@@ -113,7 +113,7 @@ async function sendFcm(tokens: string[], note: Note): Promise<void> {
           message: {
             token,
             notification: { title: note.title, body: note.body },
-            data: { matchId: note.matchId },
+            data: { matchId: note.matchId, kind: note.kind },
             android: { collapse_key: note.matchId },
           },
         }),
@@ -145,6 +145,7 @@ async function sendApns(tokens: string[], note: Note): Promise<void> {
         body: JSON.stringify({
           aps: { alert: { title: note.title, body: note.body }, sound: 'default' },
           matchId: note.matchId,
+          kind: note.kind,
         }),
       }),
     ),
@@ -154,23 +155,19 @@ async function sendApns(tokens: string[], note: Note): Promise<void> {
 Deno.serve(async (req) => {
   if (req.headers.get('authorization') !== `Bearer ${env('NOTIFY_SECRET')}`)
     return new Response('forbidden', { status: 403 });
-  const { match_id } = (await req.json()) as Payload;
+  const { match_id, kind = 'turn' } = (await req.json()) as Payload;
   const [m] = await rest<Match[]>(
-    `matches?id=eq.${encodeURIComponent(match_id)}&select=id,status,players,names,next_team,winner`,
+    `matches?id=eq.${encodeURIComponent(match_id)}` +
+      '&select=id,status,players,names,next_team,rematch,rematch_by',
   );
-  if (!m || m.status !== 'active' || m.next_team < 0) return new Response('skip');
-  const to = m.players[m.next_team];
-  if (!to) return new Response('skip');
-  const from = m.names[1 - m.next_team] ?? '?';
+  const plan = m ? planNotify(kind, m) : null;
+  if (!m || !plan) return new Response('skip');
   const tokens = await rest<{ token: string; platform: string; lang: string }[]>(
-    `push_tokens?user_id=eq.${to}&select=token,platform,lang`,
+    `push_tokens?user_id=eq.${plan.to}&select=token,platform,lang`,
   );
-  // The app language at registration picks the text (EN / HU).
-  const body = (lang: string): string =>
-    lang === 'hu' ? `${from} lépett – te jössz!` : `${from} made a move – your turn!`;
   await Promise.all(
     tokens.map((t) => {
-      const note: Note = { title: 'Craterpult', body: body(t.lang), matchId: m.id };
+      const note: Note = { title: 'Craterpult', body: plan.text(t.lang), matchId: m.id, kind };
       return t.platform === 'ios' ? sendApns([t.token], note) : sendFcm([t.token], note);
     }),
   );

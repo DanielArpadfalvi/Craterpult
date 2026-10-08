@@ -147,6 +147,15 @@ export function inviteCodeFromUrl(url: string): string {
   return m ? normalizeInviteCode(m[1] as string) : '';
 }
 
+/**
+ * The match a tapped push opens, or null for the match list: "your turn" and the reminder
+ * open their match; a rematch offer (sent for the finished match) opens the list, where it
+ * can be accepted.
+ */
+export function pushTarget(data: Record<string, string>): string | null {
+  return data.matchId && data.kind !== 'rematch' ? data.matchId : null;
+}
+
 const errorOf = (e: unknown): OnlineErrorCode => (e instanceof OnlineError ? e.code : 'network');
 
 export function createOnline(d: OnlineDeps): OnlineController {
