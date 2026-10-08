@@ -1,6 +1,6 @@
 # Craterpult – átadási jegyzet (hideg indulás lokális sessionből)
 
-Utolsó frissítés: 2026-10-08 (T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push: visszavágó + emlékeztető, T9.7 adatvédelem/megőrzés – a main-en). **Munkamód (tulajdonos kérése): közvetlenül a main-re dolgozz, és amint egy feladat kész, merge/push a main-re.** A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
+Utolsó frissítés: 2026-10-08 (T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push: visszavágó + emlékeztető, T9.7 adatvédelem/megőrzés, T9.8 online statisztika-javítás – a main-en). **Munkamód (tulajdonos kérése): közvetlenül a main-re dolgozz, és amint egy feladat kész, merge/push a main-re.** A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
 
 ## 1. Hol tart a projekt
 
@@ -19,7 +19,7 @@ Körökre osztott artillery (Worms-szerű, saját IP) portré mobilra: rombolhat
 | M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA T8.1–T8.3) | ✅ kód kész; T8.4 tulajdonosi lépések: RevenueCat + sandbox vásárlás eszközön |
 | M9 1.1 online (aszinkron meccs) | ✅ kód kész, mock backenddel tesztelve; T9.3 visszavágó, T9.4 válasz-időkorlát, T9.5 kör-kezdés jelzés, T9.6 push-bővítés, T9.7 adatvédelem kész; T9.2: Supabase-projekt + push-kulcsok (tulajdonos), két eszközös teszt |
 
-Tesztek: 304 unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
+Tesztek: 305 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
 
 ## 2. Félkész munkák és ágak
 

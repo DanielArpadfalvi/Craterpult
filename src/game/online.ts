@@ -111,6 +111,8 @@ export interface OnlineDeps {
   /** Share an invite text; resolves how it went. */
   share(text: string): Promise<'shared' | 'copied' | 'failed'>;
   toast(text: string): void;
+  /** Count a finished online match in the stats (called once per match, see `firstFinish`). */
+  recordResult(won: boolean): void;
   t(key: string, vars?: Record<string, string | number>): string;
 }
 
@@ -237,6 +239,31 @@ export function createOnline(d: OnlineDeps): OnlineController {
   function upsert(m: OnlineMatch): void {
     const list = ui().matches.filter((x) => x.id !== m.id);
     patch({ matches: [m, ...list].sort((a, b) => b.updatedAt - a.updatedAt) });
+    countFinished([m]);
+  }
+
+  /**
+   * Every finished match counts in the stats once, however it ended (last shot, resignation,
+   * time out) and whether or not it was watched to the end on this phone.
+   */
+  function countFinished(list: readonly OnlineMatch[]): void {
+    for (const m of list)
+      if (m.status === 'finished')
+        void firstFinish(m.id).then((first) => first && d.recordResult(m.winner === m.myTeam));
+  }
+
+  // Serialized so two reports of the same match cannot both be "first".
+  let recording: Promise<unknown> = Promise.resolve();
+  function firstFinish(matchId: string): Promise<boolean> {
+    const run = recording.then(async () => {
+      const raw = await d.storage.get<JsonValue>(RECORDED_KEY);
+      const ids = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+      if (ids.includes(matchId)) return false;
+      await d.storage.set(RECORDED_KEY, [matchId, ...ids].slice(0, 200));
+      return true;
+    });
+    recording = run.catch(() => undefined);
+    return run;
   }
 
   async function guard<T>(fn: () => Promise<T>, busy = true): Promise<T | undefined> {
@@ -263,7 +290,9 @@ export function createOnline(d: OnlineDeps): OnlineController {
       patch({ loading: true, error: null });
       try {
         await flush().catch(() => undefined);
-        patch({ matches: await service.listMatches() });
+        const matches = await service.listMatches();
+        patch({ matches });
+        countFinished(matches);
       } catch (e) {
         patch({ error: errorOf(e) });
       } finally {
@@ -409,12 +438,6 @@ export function createOnline(d: OnlineDeps): OnlineController {
       void service.startTurn(matchId, n).catch(() => undefined);
     },
     savePartial: (matchId, partial) => writePartial(partialKey(matchId, partial.team), partial),
-    async firstFinish(matchId) {
-      const raw = await d.storage.get<JsonValue>(RECORDED_KEY);
-      const ids = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
-      if (ids.includes(matchId)) return false;
-      await d.storage.set(RECORDED_KEY, [matchId, ...ids].slice(0, 200));
-      return true;
-    },
+    firstFinish,
   };
 }

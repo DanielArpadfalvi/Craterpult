@@ -198,6 +198,10 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     play: (m, turns, partial) => startOnline(m, turns, partial),
     share: (text) => platform.share.share(text),
     toast: (text) => toast(text),
+    recordResult: (won) =>
+      void updateSave((d) => {
+        recordMatch(d.stats, { mode: 'online', won, vsBot: false, tally: createTally(0) });
+      }),
     t: (key, vars) => t(key as TranslationKey, vars),
   });
   const patchOnline = (p: Partial<OnlineUi>): void =>
