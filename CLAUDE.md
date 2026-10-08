@@ -4,6 +4,7 @@ Turn-based artillery game (destructible terrain, bots, hotseat; async online in 
 
 ## Getting started (read first)
 - **New session? Read `docs/HANDOFF.md` first**: current state, open branches, next steps, the live dashboard update rules and local setup notes.
+- **Session progress log (mandatory, every session):** keep `docs/HANDOFF.md` current so a fresh session can pick up the thread with no explanation from the owner. Update it in the same commit as the work (at least after every finished task and before the session ends or pauses): bump the "Utolsó frissítés" line, record what was done, where work stopped (branch, last commit, half-finished items, failing tests), open questions waiting on the owner, and the exact next step. Write it in Hungarian, keep it a concise summary (replace stale info rather than appending a diary).
 
 ## Stack
 Vite + TypeScript (strict) · PixiJS v8 (gameplay canvas) · Preact (DOM UI overlay) · Capacitor (iOS/Android) · Vitest · Playwright.
