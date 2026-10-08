@@ -25,15 +25,16 @@
       <main lang="en">
         <h1>Privacy policy</h1>
         <p class="muted">
-          Effective date: 6 October 2026 · Applies to the Craterpult app for iOS and Android.
+          Effective date: 8 October 2026 · Applies to the Craterpult app for iOS and Android.
         </p>
 
         <div class="card">
           <strong>In short:</strong> Craterpult has no account, no ads, no analytics and no
           tracking. Your progress stays on your device.
-          The only data that leaves your device is what is needed to sell and restore the optional
-          Full Version: Apple or Google process the payment, and our purchase service RevenueCat
-          receives an anonymous ID and the purchase receipt.
+          Data leaves your device only for two optional features: the Full Version (Apple or
+          Google process the payment, our purchase service RevenueCat receives an anonymous ID and
+          the purchase receipt) and online matches with friends (our game server stores an
+          anonymous player ID, your team name and the matches you play).
         </div>
 
         <h2>Who is responsible</h2>
@@ -58,8 +59,46 @@
           <li>No analytics, crash reporting or usage tracking</li>
           <li>No advertising and no advertising identifier (IDFA / AAID), no tracking across apps</li>
           <li>No location, photos, microphone or camera access</li>
-          <li>No online play, chat or user-generated content in this version</li>
+          <li>No chat, messages, friend lists or public profiles</li>
         </ul>
+
+        <h2>Online matches with friends (version 1.1 and later)</h2>
+        <p>
+          Online matches are optional: nothing is sent until you open <em>Online</em> and create
+          or join a match. The game server runs on <strong>Supabase</strong> (Supabase, Inc.,
+          USA; database hosted in the EU) as our service provider (data processor). It stores:
+        </p>
+        <ul>
+          <li>
+            an <strong>anonymous player ID</strong> – a random identifier created on your first
+            online match (with the session tokens that keep you signed in), not linked to your
+            name, e-mail or store account;
+          </li>
+          <li>
+            the <strong>team name</strong> you chose, which your opponent sees;
+          </li>
+          <li>
+            <strong>match data</strong> – the match settings, every turn you play (your moves and a
+            checksum of the result), whose turn it is, the result and the time of each change;
+          </li>
+          <li>
+            if you allow notifications, your device's <strong>push token</strong>, the platform
+            and the app language, so we can tell you when it is your turn, when a friend wants a
+            rematch, or when your time to move is running out. The notifications are delivered by
+            Google (Firebase Cloud Messaging) or Apple (Apple Push Notification service);
+          </li>
+          <li>technical request data such as your IP address, as part of the connection.</li>
+        </ul>
+        <p>
+          This data is used only to run the matches you start (legal basis: providing the feature
+          you ask for – GDPR Art. 6(1)(b)); it is never sold, used for advertising or combined with
+          other data. Finished matches are deleted 90 days after they end, invites nobody joined
+          after 30 days and abandoned matches after 180 days without a move; your push token is deleted once you have not used online play for 180
+          days. Transfers to the USA
+          are covered by the EU–US Data Privacy Framework and/or the EU Standard Contractual
+          Clauses. See
+          <a href="https://supabase.com/privacy">Supabase's privacy policy</a>.
+        </p>
 
         <h2>In-app purchase (Full Version)</h2>
         <p>
@@ -103,8 +142,9 @@
         <p>
           Under the GDPR and similar laws you may request access to, correction or deletion of your
           data, restriction of or objection to processing, and data portability. Because we do not
-          know who you are, please include the date of your purchase (and the store you used) so
-          we can find the record. Write to
+          know who you are, please include the date of your purchase (and the store you used), or
+          for online matches your team name and an invite code of one of your matches, so we can
+          find the record. Write to
           <a href="mailto:craterpult.support@gmail.com">craterpult.support@gmail.com</a>. You can
           also lodge a complaint with your data protection authority (in Hungary: NAIH, naih.hu).
         </p>
@@ -117,9 +157,8 @@
 
         <h2>Changes</h2>
         <p>
-          If the app starts handling data differently (for example online matches with friends in
-          a later version), we will update this page and the store privacy labels before that
-          version is released.
+          If the app starts handling data differently, we will update this page and the store
+          privacy labels before that version is released.
         </p>
       </main>
 
@@ -127,15 +166,16 @@
       <main lang="hu">
         <h1>Adatvédelmi nyilatkozat</h1>
         <p class="muted">
-          Hatályos: 2026. október 6. · A Craterpult iOS- és Android-alkalmazásra vonatkozik.
+          Hatályos: 2026. október 8. · A Craterpult iOS- és Android-alkalmazásra vonatkozik.
         </p>
 
         <div class="card">
           <strong>Röviden:</strong> a Craterpultban nincs fiók, reklám, analitika és követés.
-          Az előrehaladásod a készülékeden marad. Csak az hagyja el a
-          készüléket, ami a nem kötelező Teljes verzió megvásárlásához és visszaállításához kell: a
-          fizetést az Apple vagy a Google intézi, a vásárlás-kezelő szolgáltatónk, a RevenueCat
-          pedig egy anonim azonosítót és a vásárlási nyugtát kapja meg.
+          Az előrehaladásod a készülékeden marad. Adat csak két nem kötelező funkcióhoz hagyja el a
+          készüléket: a Teljes verzióhoz (a fizetést az Apple vagy a Google intézi, a
+          vásárlás-kezelő szolgáltatónk, a RevenueCat egy anonim azonosítót és a vásárlási nyugtát
+          kapja meg) és a barátok elleni online meccsekhez (a játékszerverünk egy anonim
+          játékosazonosítót, a csapatneved és a lejátszott meccseket tárolja).
         </div>
 
         <h2>Ki felel az adatkezelésért?</h2>
@@ -162,8 +202,46 @@
           <li>Nincs analitika, hibajelentés-küldés vagy használatkövetés</li>
           <li>Nincs reklám, nincs hirdetési azonosító (IDFA / AAID), nincs appokon átívelő követés</li>
           <li>Nincs hozzáférés a helyadatokhoz, fényképekhez, mikrofonhoz vagy kamerához</li>
-          <li>Ebben a verzióban nincs online játék, csevegés vagy felhasználói tartalom</li>
+          <li>Nincs csevegés, üzenetküldés, barátlista vagy nyilvános profil</li>
         </ul>
+
+        <h2>Online meccsek barátok ellen (1.1-es verziótól)</h2>
+        <p>
+          Az online meccs nem kötelező: semmi sem megy el, amíg meg nem nyitod az <em>Online</em>
+          menüt, és nem hozol létre vagy csatlakozol egy meccshez. A játékszerver a
+          <strong>Supabase</strong> (Supabase, Inc., USA; az adatbázis az EU-ban fut) szolgáltatásán
+          működik, amely az adatfeldolgozónk. Ezeket tárolja:
+        </p>
+        <ul>
+          <li>
+            egy <strong>anonim játékosazonosítót</strong> – az első online meccsnél létrejövő
+            véletlen azonosítót (és a bejelentkezve tartó munkamenet-tokeneket), amely nem kötődik
+            a nevedhez, e-mail-címedhez vagy áruházi fiókodhoz;
+          </li>
+          <li>a választott <strong>csapatnevedet</strong>, amelyet az ellenfeled lát;</li>
+          <li>
+            a <strong>meccsadatokat</strong> – a meccs beállításait, minden lejátszott körödet (a
+            lépéseidet és az eredmény ellenőrzőösszegét), hogy ki következik, az eredményt és a
+            változások idejét;
+          </li>
+          <li>
+            ha engedélyezed az értesítéseket, a készüléked <strong>push-tokenjét</strong>, a
+            platformot és az alkalmazás nyelvét, hogy szólhassunk, ha te jössz, ha egy barátod
+            visszavágót kér, vagy ha fogy a lépésre szánt időd. Az értesítéseket a Google (Firebase
+            Cloud Messaging) vagy az Apple (Apple Push Notification service) kézbesíti;
+          </li>
+          <li>a kapcsolathoz technikailag szükséges adatokat, például az IP-címedet.</li>
+        </ul>
+        <p>
+          Ezeket az adatokat csak az általad indított meccsek lebonyolítására használjuk
+          (jogalap: a kért funkció nyújtása – GDPR 6. cikk (1) b) pont); nem adjuk el, nem
+          használjuk reklámra, és nem kapcsoljuk össze más adattal. A befejezett meccseket a
+          végük után 90 nappal, a senki által el nem fogadott meghívókat 30 nap után, a 180 napig
+          lépés nélkül álló meccseket 180 nap után töröljük, és
+          a push-tokent is, ha 180 napig nem használtad az online módot. Az USA-ba történő továbbítást az
+          EU–USA adatvédelmi keretrendszer és/vagy az EU általános szerződési feltételei fedik. Lásd
+          a <a href="https://supabase.com/privacy">Supabase adatvédelmi tájékoztatóját</a>.
+        </p>
 
         <h2>Alkalmazáson belüli vásárlás (Teljes verzió)</h2>
         <p>
@@ -211,7 +289,8 @@
           A GDPR alapján kérheted az adataidhoz való hozzáférést, azok helyesbítését vagy törlését,
           az adatkezelés korlátozását, tiltakozhatsz az adatkezelés ellen, és kérheted az adatok
           hordozhatóságát. Mivel nem tudjuk, ki vagy, írd meg a vásárlás dátumát (és az áruházat),
-          hogy megtaláljuk a hozzá tartozó adatot. Írj a
+          online meccseknél pedig a csapatneved és az egyik meccsed meghívókódját, hogy megtaláljuk
+          a hozzá tartozó adatot. Írj a
           <a href="mailto:craterpult.support@gmail.com">craterpult.support@gmail.com</a> címre.
           Panasszal a Nemzeti Adatvédelmi és Információszabadság Hatósághoz (NAIH, naih.hu) is
           fordulhatsz.
@@ -226,9 +305,8 @@
 
         <h2>Változások</h2>
         <p>
-          Ha az alkalmazás adatkezelése megváltozik (például egy későbbi verzió barátok elleni
-          online meccsei miatt), ezt az oldalt és az áruházi adatvédelmi címkéket még az adott
-          verzió megjelenése előtt frissítjük.
+          Ha az alkalmazás adatkezelése megváltozik, ezt az oldalt és az áruházi adatvédelmi
+          címkéket még az adott verzió megjelenése előtt frissítjük.
         </p>
       </main>
 

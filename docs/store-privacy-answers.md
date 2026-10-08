@@ -199,3 +199,56 @@ korlátozása, és a tartalom sem gyerekeknek szól).
   `ITSAppUsesNonExemptEncryption = NO` (már az Info.plistben).
 - **EU DSA trader status:** lásd `docs/APP-STORE-CHECKLIST.md` 3. pont.
 - **Adatvédelmi nyilatkozat URL / Support URL:** lásd `docs/RELEASE.md` 7.3.
+
+---
+
+## 7. 1.1 – online mód (ha a build Supabase-konfiggal készül)
+
+Az 1–6. pont az online mód **nélküli** (1.0) buildre igaz. Ha a kiadott build `VITE_SUPABASE_URL`-lel
+készül (az Online elérhető), a fentieket így kell kiegészíteni – a `docs/site/privacy.html` már az
+online szakaszt is tartalmazza (2026-10-08), azt a site-repóba publikálni kell (`scripts/publish-site.sh`).
+
+**Mit küld az online mód** (`src/net/supabase.ts`, `supabase/migrations/*`): anonim Supabase-
+felhasználó (azonosító + munkamenet-tokenek), csapatnév (az ellenfél látja), meccsadatok (beállítások,
+körök parancsnaplója + állapot-hash, eredmény, időpontok), push esetén eszköz-token + platform + nyelv,
+IP-cím a kapcsolatban. Adatfeldolgozó: Supabase (EU régió), push: FCM / APNs. Megőrzés: befejezett
+meccs 90 nap, el nem fogadott meghívó 30 nap, elhagyott meccs 180 nap, push-token 180 nap
+használat nélkül (`20261008200000_retention.sql`, napi `pg_cron`).
+
+**Google Play – Data safety (1.1):** az 1. pont két sora mellé:
+
+| Kategória → típus | Collected | Shared | Ephemeral | Required / optional | Cél |
+|---|---|---|---|---|---|
+| **Device or other IDs** (anonim játékos-ID, push-token) | Yes | No | No | **Optional** (csak online) | App functionality |
+| **App activity → Other user-generated content** (csapatnév) | Yes | No | No | Optional | App functionality |
+| **App activity → Other actions** (meccsek körei, eredmények) | Yes | No | No | Optional | App functionality |
+
+A „Device or other IDs” sor már szerepel (RevenueCat, Required) – egy típus csak egyszer
+jelölhető: maradjon **Required**, a célok összevonva (App functionality). Törlés: e-mailes kérés +
+automatikus törlés a fenti határidőkkel.
+
+**App Store – App Privacy (1.1):**
+
+| Data type | Use | Linked to the user? | Tracking? |
+|---|---|---|---|
+| Identifiers → **User ID** (anonim játékos-ID) | App Functionality | **Yes** ⁶ | No |
+| Identifiers → **Device ID** (push-token) | App Functionality | **Yes** ⁶ | No |
+| User Content → **Gameplay Content** (körök, eredmények) | App Functionality | **Yes** ⁶ | No |
+| User Content → **Other User Content** (csapatnév) | App Functionality | **Yes** ⁶ | No |
+
+⁶ Az online adat a játékos-ID-hoz kötött (a meccsek ehhez tartoznak) – konzervatívan „Linked”, még
+ha az ID anonim is. Ezzel az 1.0-s RevenueCat-sorok (Purchase History, User ID) „Not linked” jelölése
+maradhat, de a User ID típus egyszer szerepel: legyen **Linked**.
+
+**Privacy manifest** (`ios/App/App/PrivacyInfo.xcprivacy`): a fenti típusokat
+(`NSPrivacyCollectedDataTypeUserID`, `…DeviceID`, `…GameplayContent`, `…OtherUserContent`, linked,
+App Functionality) az 1.1 build előtt fel kell venni.
+
+**Korhatár (1.1):**
+- IARC: *Users can interact or exchange content* → **Yes** (online meccs meghívott baráttal;
+  nincs chat, csak a 16 karakteres csapatnév és a játék lépései látszanak). Várhatóan
+  „Users Interact” kiegészítő jelzés.
+- Apple: *Messaging and Chat* → No; *User-Generated Content* → **No** (csak a meghívott barát látja a
+  csapatnevet, nincs nyilvános tartalom). Ha a review rákérdez, a csapatnév szűrhető/jelenthető
+  funkció hiánya miatt a konzervatív válasz a Yes – ez 13+-nál nem emel.
+- A 3. pont „Interakció” sora 1.1-re: aszinkron online meccs meghívókóddal, chat nélkül.
