@@ -64,10 +64,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-debug-latest --yes --cleanup-tag || true
-          gh release create android-debug-latest craterpult-debug-*.apk \
-            --prerelease --target "${{ github.sha }}" \
-            --title "Craterpult debug APK (${{ env.VERSION_NAME }})" \
-            --notes "Automatic test build from ${{ github.ref_name }} @ ${{ github.sha }}. Not for store upload."
+          # Right after the tag is deleted GitHub may still refuse it ("Published releases must
+          # have a valid tag"), so give the re-creation a few tries.
+          for attempt in 1 2 3 4; do
+            if gh release create android-debug-latest craterpult-debug-*.apk \
+              --prerelease --target "${{ github.sha }}" \
+              --title "Craterpult debug APK (${{ env.VERSION_NAME }})" \
+              --notes "Automatic test build from ${{ github.ref_name }} @ ${{ github.sha }}. Not for store upload."; then
+              exit 0
+            fi
+            echo "release create failed (attempt $attempt), retrying"
+            gh release delete android-debug-latest --yes --cleanup-tag || true
+            sleep $((attempt * 10))
+          done
+          exit 1
 
   # Which release secrets exist? (Secrets cannot be used in job-level `if:` directly.)
   secrets-check:
