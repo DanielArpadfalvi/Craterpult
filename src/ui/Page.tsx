@@ -95,11 +95,14 @@ export function ChoiceRow<T extends string | number>({
   onChange,
   testId,
   hideLabel,
+  wrap,
 }: {
   label: string;
   hint?: string;
   /** The section title already names the row. */
   hideLabel?: boolean;
+  /** Many options: wrap them into a grid instead of one squeezed row. */
+  wrap?: boolean;
   options: readonly { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
@@ -113,7 +116,7 @@ export function ChoiceRow<T extends string | number>({
           {hint && <span class="row-hint">{hint}</span>}
         </span>
       )}
-      <div class="segmented" role="radiogroup" aria-label={label}>
+      <div class={`segmented${wrap ? ' is-wrap' : ''}`} role="radiogroup" aria-label={label}>
         {options.map((o) => (
           <button
             type="button"

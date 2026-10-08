@@ -50,7 +50,7 @@ const TRADEMARKS: readonly RegExp[] = [
   /artillery duel/i,
 ];
 
-/** The free version is a full game, not a cut-down one: these words are banned (EN, HU, DE, ES). */
+/** The free version is a full game, not a cut-down one: these words are banned (EN, HU, DE, ES, PT). */
 const FREE_VERSION_WORDS: readonly RegExp[] = [
   /\blite\b/i,
   /\bdemo\b/i,
@@ -64,6 +64,8 @@ const FREE_VERSION_WORDS: readonly RegExp[] = [
   /\bdemoversion/i,
   /versión de prueba/i,
   /\bprueba gratuita/i,
+  /versão de teste/i,
+  /\bteste grátis/i,
 ];
 
 /** Things the game does not have; claiming them would be false (and off-model). */
@@ -77,6 +79,8 @@ const OFF_MODEL: readonly RegExp[] = [
   /\bedelsteine?\b/i,
   /\bmonedas\b/i,
   /\bgemas\b/i,
+  /\bmoedas\b/i,
+  /\bassinatura mensal/i,
 ];
 
 const read = (lang: string, file: string): string =>
@@ -90,7 +94,7 @@ const langs = readdirSync(ROOT, { withFileTypes: true })
   .map((d) => d.name)
   .sort();
 
-const EXPECTED = 'de,en,es,hu';
+const EXPECTED = 'de,en,es,hu,pt';
 if (langs.join(',') !== EXPECTED)
   problems.push(`expected languages ${EXPECTED}, found ${langs.join(',')}`);
 

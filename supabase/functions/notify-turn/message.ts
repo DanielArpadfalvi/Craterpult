@@ -46,6 +46,11 @@ const TEXTS: Record<string, Texts> = {
     reminder: (f) => `Te quedan 12 horas para mover contra ${f}.`,
     rematch: (f) => `¡${f} quiere la revancha!`,
   },
+  pt: {
+    turn: (f) => `${f} jogou: é a sua vez!`,
+    reminder: (f) => `Faltam 12 horas para jogar contra ${f}.`,
+    rematch: (f) => `${f} quer revanche!`,
+  },
 };
 
 const texts = (lang: string): Texts => TEXTS[lang] ?? (TEXTS.en as Texts);

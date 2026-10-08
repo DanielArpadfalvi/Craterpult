@@ -1293,6 +1293,10 @@ p.dim {
   display: flex;
   gap: 6px;
 }
+.segmented.is-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
 
 .seg {
   flex: 1;

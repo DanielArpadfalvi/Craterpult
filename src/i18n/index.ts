@@ -2,17 +2,18 @@ import { de } from './de';
 import { en, type TranslationKey } from './en';
 import { es } from './es';
 import { hu } from './hu';
+import { pt } from './pt';
 
 export type { TranslationKey };
 /** Interface languages, in the order the settings list them. */
-export const LANGUAGES = ['en', 'hu', 'de', 'es'] as const;
+export const LANGUAGES = ['en', 'hu', 'de', 'es', 'pt'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export function isLanguage(x: unknown): x is Language {
   return (LANGUAGES as readonly unknown[]).includes(x);
 }
 
-const DICTS: Record<Language, Record<TranslationKey, string>> = { en, hu, de, es };
+const DICTS: Record<Language, Record<TranslationKey, string>> = { en, hu, de, es, pt };
 let current: Language = deviceLanguage();
 const listeners = new Set<() => void>();
 

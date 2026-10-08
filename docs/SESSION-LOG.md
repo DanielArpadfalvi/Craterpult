@@ -18,11 +18,12 @@ here, and continue from its **Next** line.
 - `678075e` + `7ab9929` T9.7 privacy page online section (EN/HU, published to craterpult-site `a2a0715`), daily data purge, 1.1 store privacy answers (`docs/store-privacy-answers.md` 7).
 - `6526ad8` T9.8 fix: resigned / timed-out / unwatched online matches now count in the stats.
 - `3b68b4b` CI: Android pre-release re-creation retries (fixed a red run on `842820f`).
-- T10.2 Spanish (`es`): dictionaries, push texts, store listing, e2e layout checks (commit: see `git log`, "T10.2").
+- T10.3 Brazilian Portuguese (`pt`) + wrapping language picker (commit: see `git log`, "T10.3").
+- `5091b6a` T10.2 Spanish (`es`): dictionaries, push texts, store listing, e2e layout checks.
 - `2e2e041` T10.1 German localization: `src/i18n/*.de.ts`, `LANGUAGES` list + device-language detection, settings picker, e2e layout checks in DE, German store listing (`store/listing/de`), push texts per language (migration `20261008220000_push_languages.sql`).
 
 **State:** all code verified with unit tests, e2e (mock backend) and PGlite for the SQL. Nothing runs on a real Supabase yet (no project). 7 SQL migrations in `supabase/migrations/` to apply in order.
 
 **Waiting on the owner:** Supabase project + `pg_cron` (T9.2, `docs/ONLINE.md` 4), RevenueCat (T8.4), store data forms per `docs/store-privacy-answers.md` 7, iOS privacy manifest for 1.1.
 
-**Next:** T10.3 Brazilian Portuguese (`pt`) – same pattern as German/Spanish: four dictionary files, `LANGUAGES`, `lang.*` names in every dictionary, `TEXTS` in `supabase/functions/notify-turn/message.ts`, `store/listing/<lang>` + `scripts/store-listing-check.ts` language list, e2e language loops (meta/paywall). With 5 languages the settings language picker no longer fits one row at 360 px (4 just fit): switch it to a wrapping grid. After that: store screenshots per language (`tests/e2e/store-screens.spec.ts` `LANGS`, `scripts/store-frames.ts` captions).
+**Next:** T10.4 store screenshots per language – `tests/e2e/store-screens.spec.ts` `LANGS` and `scripts/store-frames.ts` (`StoreLang`, captions per scene) for de/es/pt; `npm run store:screens` regenerates `store/screenshots/`. Then: the public site (`docs/site/*`, EN/HU) could get DE/ES/PT privacy/support pages (store listings in those languages link to it) – publish with `scripts/publish-site.sh` to the craterpult-site repo.

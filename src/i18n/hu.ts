@@ -172,6 +172,7 @@ export const hu: Record<TranslationKey, string> = {
   'lang.hu': 'Magyar',
   'lang.de': 'Deutsch',
   'lang.es': 'Español',
+  'lang.pt': 'Português',
   'settings.title': 'Beállítások',
   'settings.language': 'Nyelv',
   'settings.sectionFeel': 'Hang és rezgés',

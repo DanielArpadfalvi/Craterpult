@@ -21,6 +21,7 @@ export function SettingsScreen({ s, actions }: Props) {
         <ChoiceRow
           label={t('settings.language')}
           hideLabel
+          wrap
           options={LANGUAGES.map((l) => ({ value: l, label: t(`lang.${l}`) }))}
           value={st.language === 'auto' ? getLanguage() : st.language}
           onChange={(language) => set({ language })}

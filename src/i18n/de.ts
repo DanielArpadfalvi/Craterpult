@@ -172,6 +172,7 @@ export const de: Record<TranslationKey, string> = {
   'lang.hu': 'Magyar',
   'lang.de': 'Deutsch',
   'lang.es': 'Español',
+  'lang.pt': 'Português',
   'settings.title': 'Einstellungen',
   'settings.language': 'Sprache',
   'settings.sectionFeel': 'Sound & Gefühl',

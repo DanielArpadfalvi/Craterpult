@@ -31,6 +31,7 @@ describe('i18n', () => {
     try {
       expect(as('de-AT')).toBe('de');
       expect(as('es-MX')).toBe('es');
+      expect(as('pt-BR')).toBe('pt');
       expect(as('hu')).toBe('hu');
       expect(as('en-GB')).toBe('en');
       expect(as('fr-FR')).toBe('en');
