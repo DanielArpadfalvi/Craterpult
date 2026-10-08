@@ -102,14 +102,12 @@ export function createMatch(setup: MatchSetup): MatchState {
       pendingDamage: 0,
     });
   });
-  const teams: Team[] = setup.teams.map((t, i) => ({
-    id: i,
-    name: t.name,
-    ammo: teamAmmo(t),
-    nextUnit: 0,
-    bot: !!t.bot,
-    used: [],
-  }));
+  const teams: Team[] = setup.teams.map((t, i) => {
+    const ammo = teamAmmo(t);
+    const team: Team = { id: i, name: t.name, ammo, nextUnit: 0, bot: !!t.bot, used: [] };
+    if (t.only) team.allowed = WEAPON_IDS.filter((w) => ammo[w] !== 0);
+    return team;
+  });
   const s: MatchState = {
     seed: setup.seed,
     config,
@@ -208,7 +206,8 @@ export function step(s: MatchState, commands: readonly Command[] = []): void {
       if (!projectilesBusy(s) && s.phaseTicks >= 2) {
         if (s.shotsLeft > 0 && u && u.alive && u.hp > 0 && s.turnTicksLeft > 0) {
           enterPhase(s, 'aiming');
-        } else if (u && u.alive && u.hp > 0) {
+        } else if (u && u.alive && u.hp > 0 && !s.teams[s.activeTeam]?.bot) {
+          // Bots never walk away after a shot, so they skip the retreat wait.
           enterPhase(s, 'retreat');
         } else {
           enterPhase(s, 'settling');

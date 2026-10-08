@@ -215,6 +215,31 @@ describe('crates and sudden death', () => {
     expect(s.teams[0]!.ammo.mortar).toBe(3);
   });
 
+  it('a weapon crate never adds an outside weapon to a restricted arsenal (regression)', () => {
+    const s = flatMatch([[300], [900]], {
+      teams: [
+        { name: 'T0', units: ['u00'], only: ['grenade', 'bazooka'] },
+        { name: 'T1', units: ['u10'] },
+      ],
+    });
+    const before = { ...s.teams[0]!.ammo };
+    s.crates.push({
+      id: 1,
+      kind: 'weapon',
+      weapon: 'mortar',
+      x: 300 * ONE,
+      y: 300 * ONE,
+      vy: 0,
+      grounded: false,
+    });
+    const ev = run(s, () => s.crates.length === 0, 600);
+    const got = ev.find((e) => e.type === 'crateCollected');
+    const w = got?.type === 'crateCollected' ? got.weapon : null;
+    expect(w === 'grenade' || w === 'bazooka').toBe(true);
+    expect(s.teams[0]!.ammo.mortar).toBe(0);
+    if (w && before[w] >= 0) expect(s.teams[0]!.ammo[w]).toBe(before[w] + 1);
+  });
+
   it('the water rises every turn once sudden death starts', () => {
     const s = flatMatch([[300], [900]], {
       config: { suddenDeathTurn: 1, waterRise: 20, turnTicks: 30 },

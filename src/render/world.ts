@@ -21,6 +21,9 @@ interface UnitView {
   body: Graphics;
   eyes: Graphics;
   label: Text;
+  /** Active-unit highlight: a bobbing arrow above the label and a pulsing ring at the feet. */
+  marker: Graphics;
+  halo: Graphics;
   shownHp: number;
 }
 
@@ -306,6 +309,16 @@ export class WorldView {
         v.label.text = String(hp);
       }
       v.label.alpha = active ? 1 : 0.85;
+      v.label.scale.set(active ? 0.52 : 0.42);
+      v.marker.visible = active;
+      v.halo.visible = active;
+      if (active) {
+        const t = this.reducedMotion ? 0 : this.time;
+        v.marker.position.set(0, -31 - Math.abs(Math.sin(t * 4)) * 4);
+        const pulse = 1 + 0.15 * Math.sin(t * 5);
+        v.halo.scale.set(pulse);
+        v.halo.alpha = 0.75 + 0.25 * Math.sin(t * 5);
+      }
     }
 
     this.projectiles.clear();
@@ -445,9 +458,19 @@ export class WorldView {
     label.anchor.set(0.5, 1);
     label.scale.set(0.42);
     label.position.set(0, -19);
-    root.addChild(body, label);
+    const halo = new Graphics();
+    halo.ellipse(0, 0, 13, 4).stroke({ width: 2, color, alpha: 0.9 });
+    halo.ellipse(0, 0, 13, 4).fill({ color, alpha: 0.18 });
+    halo.visible = false;
+    const marker = new Graphics();
+    marker
+      .poly([-8, -12, 8, -12, 0, 0])
+      .fill(color)
+      .stroke({ width: 1.5, color: 0xffffff, alpha: 0.95 });
+    marker.visible = false;
+    root.addChild(halo, body, label, marker);
     this.unitLayer.addChild(root);
-    return { root, body, eyes, label, shownHp: 100 };
+    return { root, body, eyes, label, marker, halo, shownHp: 100 };
   }
 
   /** Briefly mark a chosen target point. */

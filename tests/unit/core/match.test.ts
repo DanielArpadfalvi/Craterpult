@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { fxFloor } from '../../../src/core/fixed';
 import { activeUnit, canFire, createMatch, step } from '../../../src/core/match';
 import { createRecorder, hashState, replay, stepLogged } from '../../../src/core/replay';
-import { isSolid } from '../../../src/core/terrain';
+import { SETTLE_MAX_TICKS, UNIT_HALF_WIDTH } from '../../../src/core/constants';
+import { AIR, fillRect, isSolid } from '../../../src/core/terrain';
 import type { Command, MatchState } from '../../../src/core/types';
 import { flatMatch, GROUND_Y } from '../support/flat';
 
@@ -82,6 +83,39 @@ describe('turns', () => {
     step(s, [{ t: 'fire', weapon: 'shotgun', angle: 0, power: 100 }]);
     runUntil(s, () => s.phase === 'retreat');
     expect(s.units[1]!.hp).toBe(100 - 2 * 25);
+  });
+
+  it('a bot team skips the retreat wait after its shot', () => {
+    const s = flatMatch([[300], [500]], {
+      teams: [
+        { name: 'T0', units: ['u00'], bot: true },
+        { name: 'T1', units: ['u10'] },
+      ],
+    });
+    step(s, [{ t: 'fire', weapon: 'bazooka', angle: 100, power: 60 }]);
+    const phases = new Set<string>();
+    runUntil(s, () => {
+      phases.add(s.phase);
+      return s.activeTeam === 1;
+    });
+    expect(phases.has('retreat')).toBe(false);
+  });
+
+  it('a unit resting only on its outermost column settles (regression: 10 s turn ends)', () => {
+    const s = flatMatch([[300], [900]], { config: { turnTicks: 30 } });
+    const u = activeUnit(s)!;
+    // Dig away the ground under the unit except one pixel column under its right edge.
+    const px = fxFloor(u.x);
+    const left = px - UNIT_HALF_WIDTH - 2;
+    fillRect(s.terrain, left, GROUND_Y, px + UNIT_HALF_WIDTH - left, 40, AIR);
+    step(s);
+    expect(u.grounded).toBe(true);
+    let settlingTicks = 0;
+    runUntil(s, () => {
+      if (s.phase === 'settling') settlingTicks++;
+      return s.activeTeam === 1;
+    });
+    expect(settlingTicks).toBeLessThan(SETTLE_MAX_TICKS / 2);
   });
 
   it('a grenade bounces and explodes after its fuse', () => {

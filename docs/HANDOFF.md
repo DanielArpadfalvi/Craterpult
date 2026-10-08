@@ -36,8 +36,8 @@ Tesztek: 307 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `onlin
 - A weboldal él: `https://danielarpadfalvi.github.io/craterpult-site/` (privacy, support, join). Frissítés: `scripts/publish-site.sh ../craterpult-site`, majd commit + push abban a repóban.
 - Valódi telefonon még nem futott (haptika, státuszsor, splash, háttérbe tett app → szünet, push, deep link). Natív build csak GitHub Actionsben.
 - Online korlátok (1.1): a győztest a kliens állítja (a másik kliens hash-sel ellenőrzi); a válasz-időkorlát fix 72 óra.
-- Ládák korlátozott arzenálú küldetésekben más fegyvert is adhatnak.
 - E2E: a leglassabb folyamatok (hotseat, stats) terhelt gépen 1,5–2 percig futnak (időkorlát 240 s).
+- Drive-ra másolás (debug APK → „Mobile games”/`craterpult-latest.apk`): kész, de `GDRIVE_*` secretek kellenek (`docs/RELEASE.md`).
 - Android debug kulcs a Swaplighté (nem titkos), release-hez saját upload keystore kell.
 
 ## 4. Következő lépések sorrendben

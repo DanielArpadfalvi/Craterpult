@@ -62,20 +62,26 @@ export function stepCrates(s: MatchState): void {
       return dx * dx + dy * dy <= PICKUP_RADIUS * PICKUP_RADIUS;
     });
     if (taker) {
+      let weapon = c.weapon;
       if (c.kind === 'health') {
         // Heal up to the usual cap (or a champion's own starting HP); never reduce.
         const cap = Math.max(MAX_HP, taker.maxHp);
         taker.hp = Math.max(taker.hp, Math.min(cap, taker.hp + CRATE_HEALTH));
-      } else if (c.weapon) {
+      } else if (weapon) {
         const team = s.teams[taker.team];
-        if (team && team.ammo[c.weapon] >= 0) team.ammo[c.weapon]++;
+        // A restricted arsenal only ever gets its own weapons (picked by crate id, no RNG draw).
+        const allowed = team?.allowed;
+        if (allowed && allowed.length > 0 && !allowed.includes(weapon)) {
+          weapon = allowed[c.id % allowed.length] ?? weapon;
+        }
+        if (team && team.ammo[weapon] >= 0) team.ammo[weapon]++;
       }
       s.events.push({
         type: 'crateCollected',
         crate: c.id,
         unit: taker.id,
         kind: c.kind,
-        weapon: c.weapon,
+        weapon,
       });
       continue;
     }

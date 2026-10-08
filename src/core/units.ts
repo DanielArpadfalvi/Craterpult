@@ -94,7 +94,11 @@ export function stepUnit(
 ): void {
   if (!u.alive) return;
   if (u.grounded) {
-    if (!standsOn(t, fxFloor(u.x), fxFloor(u.y))) launchUnit(u, 0, 0);
+    const px = fxFloor(u.x);
+    const py = fxFloor(u.y);
+    // Also at rest when the body cannot move down a pixel: otherwise a unit whose only support is
+    // under its outermost column would fall and land again every tick and never settle.
+    if (!standsOn(t, px, py) && !bodyCollides(t, px, py + 1)) launchUnit(u, 0, 0);
     else {
       // Sudden-death water also rises over units standing still.
       drownIfOut(t, u, waterLevel, events);

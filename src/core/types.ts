@@ -54,6 +54,11 @@ export interface Team {
   bot: boolean;
   /** Weapons this team has fired so far (unique, in order of first use). Replaced, never mutated. */
   used: WeaponId[];
+  /**
+   * Restricted arsenal (campaign / daily `only`): the weapons this team may ever hold. Weapon
+   * crates it picks up turn into one of these. Absent = unrestricted.
+   */
+  allowed?: WeaponId[];
 }
 
 export interface Projectile {
