@@ -77,8 +77,7 @@ Ismert korlátok (1.1):
      bekapcsolja és ütemezi). Ellenőrzés: `select * from cron.job;`
    - Build: `VITE_PUSH_ENABLED=1` (enélkül a push ki van kapcsolva – Firebase-konfig nélkül az Android
      `register()` összeomlana).
-5. Adatvédelem: a `docs/site/privacy.html` online szakasza kész (2026-10-08) → publikálás a site-repóba
-   (`scripts/publish-site.sh`); a store-kérdőívek 1.1-es válaszai: `docs/store-privacy-answers.md` 7.
+5. Adatvédelem: a `docs/site/privacy.html` online szakasza kész és publikálva (2026-10-08); a store-kérdőívek 1.1-es válaszai: `docs/store-privacy-answers.md` 7.
    Megőrzés: napi `pg_cron` takarítás (`purge_old_data`, `20261008200000_retention.sql`).
 
 Fejlesztés: `npm run dev` → weben a mock backend (localStorage = „szerver”, sessionStorage = játékos),

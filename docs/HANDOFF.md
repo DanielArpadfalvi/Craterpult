@@ -31,7 +31,7 @@ Tesztek: 304 unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `onlin
 ## 3. Nyitott döntések / ismert hibák
 
 - **Tulajdonosi döntés kell:** Supabase-projekt létrehozása (melyik fiók/régió, ingyenes szint) – amíg nincs, natívon az Online nem érhető el. Push: Firebase-projekt + APNs-kulcs. Lásd `docs/ONLINE.md` 4.
-- 1.1 előtt: a frissített adatvédelmi oldalt (online szakasz, 2026-10-08) publikálni kell a site-repóba, és a store-kérdőíveket a `docs/store-privacy-answers.md` 7. pontja szerint kitölteni (+ iOS privacy manifest bővítése).
+- 1.1 előtt: a frissített adatvédelmi oldal (online szakasz) kint van (2026-10-08, craterpult-site `a2a0715`); a store-kérdőíveket a `docs/store-privacy-answers.md` 7. pontja szerint kitölteni (+ iOS privacy manifest bővítése).
 - Valódi vásárlás (StoreKit/Play Billing, RevenueCat) még sosem futott: kell RevenueCat projekt, termék `craterpult_full_version`, entitlement `full_version`, secretek `VITE_RC_API_KEY_IOS/ANDROID`.
 - A weboldal él: `https://danielarpadfalvi.github.io/craterpult-site/` (privacy, support, join). Frissítés: `scripts/publish-site.sh ../craterpult-site`, majd commit + push abban a repóban.
 - Valódi telefonon még nem futott (haptika, státuszsor, splash, háttérbe tett app → szünet, push, deep link). Natív build csak GitHub Actionsben.
