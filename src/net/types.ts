@@ -21,6 +21,8 @@ export interface OnlineMatch {
   winner: number | null;
   /** Team that resigned, or null. */
   resigned: number | null;
+  /** Index of the turn its player has begun (first command sent), or null. */
+  startedTurn: number | null;
   /** Team that let its reply time run out (the opponent claimed the win), or null. */
   timedOut: number | null;
   /** Last change, ms since the epoch (sorting only). */
@@ -79,6 +81,11 @@ export interface OnlineService {
    * too they join it and move first. Returns the rematch.
    */
   rematch(id: string, params: OnlineParams, name: string): Promise<OnlineMatch>;
+  /**
+   * The player made the first move of turn `n` (their turn): from now on leaving cannot undo
+   * it. Does not change the reply clock.
+   */
+  startTurn(id: string, n: number): Promise<void>;
   /**
    * Win an active match whose opponent has not moved for `REPLY_LIMIT_MS` (the server checks
    * the time). Fails with 'conflict' when it is too early or not the opponent's turn.

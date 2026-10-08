@@ -24,7 +24,7 @@ import {
 } from '../core/daily';
 import { activeUnit, canFire, canMove, createMatch, step, type MatchSetup } from '../core/match';
 import type { MapStyle } from '../core/mapgen';
-import { onlineSetup, type TurnRecord } from '../core/online';
+import { onlineSetup, type PartialTurn, type TurnRecord } from '../core/online';
 import { createRng, pick } from '../core/rng';
 import type { Command, MatchState, WeaponId } from '../core/types';
 import { unitCenter } from '../core/units';
@@ -58,7 +58,7 @@ import { EdgeIndicators, type ColoredMarker } from '../render/indicators';
 import { cssColor, TEAM_COLORS } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
 import { onlineEnv, selectOnline } from '../net/select';
-import { endedEarly, type OnlineMatch } from '../net/types';
+import { endedEarly, isMyTurn, type OnlineMatch } from '../net/types';
 import { getPlatform } from '../platform';
 import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
@@ -83,7 +83,7 @@ import { hudPatch } from './hud';
 import { ownedMapStyles } from './entitlement';
 import { createMonetization, type MonetizationActions } from './monetization';
 import { createOnline, inviteCodeFromUrl, type OnlineActions, type OnlineUi } from './online';
-import { OnlinePlay } from './onlinePlay';
+import { OnlinePlay, type OnlineResume } from './onlinePlay';
 
 export interface GameActions extends MonetizationActions, OnlineActions {
   startHotseat(seed?: string): void;
@@ -189,7 +189,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     storage: platform.storage,
     playerName: () => ownName(),
     seed: () => `on-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`,
-    play: (m, turns) => startOnline(m, turns),
+    play: (m, turns, partial) => startOnline(m, turns, partial),
     share: (text) => platform.share.share(text),
     toast: (text) => toast(text),
     t: (key, vars) => t(key as TranslationKey, vars),
@@ -326,7 +326,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     /** Daily challenge: the date played and whether this is the official attempt. */
     daily?: { day: string; official: boolean };
     /** Online match: its driver and the turns stored so far. */
-    online?: { play: OnlinePlay; turns: TurnRecord[] };
+    online?: { play: OnlinePlay; turns: TurnRecord[]; resume?: OnlineResume };
   }
   let lastOptions: MatchOptions | null = null;
   /** The pause overlay was opened over the hotseat hand-over screen (back button). */
@@ -399,7 +399,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     // The turn time setting applies to every new match (and replays: it is part of the setup);
     // an online match is rebuilt from its stored turns with the agreed turn time.
     match = onlinePlay
-      ? onlinePlay.start(opts.online?.turns ?? [])
+      ? onlinePlay.start(opts.online?.turns ?? [], opts.online?.resume)
       : createMatch({
           ...opts.setup,
           config: { ...opts.setup.config, turnTicks: turnTicks(settings()) },
@@ -407,7 +407,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     tally = createTally(match.activeTeam, onlinePlay?.myTeam ?? 0);
     intro = null;
     // The camera tour only opens a fresh match (an online one may resume many turns in).
-    introPending = !onlinePlay || (opts.online?.turns.length ?? 0) === 0;
+    introPending =
+      !onlinePlay || ((opts.online?.turns.length ?? 0) === 0 && onlinePlay.resumed === 'fresh');
     prev = null;
     pending = [];
     aim = null;
@@ -719,7 +720,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   // Online matches (M9): the opponent's turns are played back live, ours are recorded and sent.
   // ---------------------------------------------------------------------------------------------
 
-  function startOnline(m: OnlineMatch, turns: TurnRecord[]): void {
+  function startOnline(m: OnlineMatch, turns: TurnRecord[], partial: PartialTurn | null): void {
     const names = [0, 1].map((i) => m.names[i] ?? `#${i + 1}`);
     const setup = onlineSetup(m.params, names);
     onlineMatch = m;
@@ -733,17 +734,43 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       mode: 'online',
       setup,
       bot: null,
-      online: { play: new OnlinePlay(setup, m.myTeam), turns },
+      online: {
+        play: new OnlinePlay(setup, m.myTeam),
+        turns,
+        resume: { partial, started: isMyTurn(m) && m.startedTurn === m.turnCount },
+      },
     });
+    const play = onlinePlay;
+    if (play?.resumed === 'forfeited') toast(t('online.forfeited'));
+    else if (play?.resumed === 'continued') toast(t('online.continued'));
+    if (play?.pendingSubmit) {
+      const { turn, outcome } = play.pendingSubmit;
+      play.pendingSubmit = null;
+      void online.submit(m.id, turn, outcome);
+    }
     // The opponent resigned (or a player ran out of time) meanwhile: nothing more will arrive.
     if (endedEarly(m)) showResigned(m);
+  }
+
+  /** Tick the half-played local turn was last saved at (it is saved on input and every second). */
+  let partialSaved = { cmds: -1, tick: -1 };
+  function saveOnlinePartial(s: MatchState, force = false): void {
+    const p = onlinePlay?.partial(s);
+    if (!p || !onlineMatch) return;
+    if (!force && p.cmds.length === partialSaved.cmds && s.tick - partialSaved.tick < 60) return;
+    partialSaved = { cmds: p.cmds.length, tick: s.tick };
+    void online.savePartial(onlineMatch.id, p);
   }
 
   function afterOnlineStep(s: MatchState): void {
     const r = onlinePlay?.afterStep(s);
     if (!r || !onlineMatch) return;
     if (r.desync) showDesync(r.desync);
-    if (r.submit) void online.submit(onlineMatch.id, r.submit.turn, r.submit.outcome);
+    if (r.started !== undefined) online.startTurn(onlineMatch.id, r.started);
+    if (r.submit) {
+      partialSaved = { cmds: -1, tick: -1 };
+      void online.submit(onlineMatch.id, r.submit.turn, r.submit.outcome);
+    } else saveOnlinePartial(s);
   }
 
   function showDesync(code: string): void {
@@ -1218,6 +1245,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       else startMatch({ ...o, setup: { ...o.setup, seed: `${o.setup.seed}+` } });
     },
     toMenu() {
+      // Leaving mid-turn keeps how far the turn got (see OnlinePlay resume).
+      if (match && onlinePlay) saveOnlinePartial(match, true);
       match = null;
       intro = null;
       introPending = false;

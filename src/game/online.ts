@@ -4,6 +4,7 @@ import {
   ONLINE_MAP_STYLES,
   ONLINE_TURN_SECONDS,
   sanitizeParams,
+  type PartialTurn,
   type TurnOutcome,
   type TurnRecord,
 } from '../core/online';
@@ -105,8 +106,8 @@ export interface OnlineDeps {
   playerName(): string;
   /** A fresh match seed. */
   seed(): string;
-  /** Start (or resume) playing a match from its stored turns. */
-  play(match: OnlineMatch, turns: TurnRecord[]): void;
+  /** Start (or resume) playing a match from its stored turns (and our half-played turn). */
+  play(match: OnlineMatch, turns: TurnRecord[], partial: PartialTurn | null): void;
   /** Share an invite text; resolves how it went. */
   share(text: string): Promise<'shared' | 'copied' | 'failed'>;
   toast(text: string): void;
@@ -121,9 +122,16 @@ export interface OnlineController {
   fetchTurns(matchId: string, from: number): Promise<TurnRecord[]>;
   /** Retry turns that could not be sent yet. */
   flush(): Promise<void>;
+  /** Tell the server the player began turn `n` (best effort). */
+  startTurn(matchId: string, n: number): void;
+  /** Keep the half-played local turn of a match. */
+  savePartial(matchId: string, partial: PartialTurn): Promise<void>;
   /** True the first time a finished match is reported (stats are recorded once per match). */
   firstFinish(matchId: string): Promise<boolean>;
 }
+
+/** Half-played local turns by match id (see `OnlinePlay` resume). */
+export const PARTIAL_KEY = 'craterpult.online.partial';
 
 /** Finished online matches already counted in the stats. */
 export const RECORDED_KEY = 'craterpult.online.recorded';
@@ -159,6 +167,26 @@ export function createOnline(d: OnlineDeps): OnlineController {
     await d.storage.set(OUTBOX_KEY, (outbox ?? []) as unknown as JsonValue);
     patch({ sending: outbox?.length ?? 0 });
   };
+
+  const loadPartials = async (): Promise<Record<string, PartialTurn>> => {
+    const raw = await d.storage.get<JsonValue>(PARTIAL_KEY);
+    return raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as unknown as Record<string, PartialTurn>)
+      : {};
+  };
+  // Writes are chained so a late save never overwrites a newer one.
+  let partialWrite: Promise<void> = Promise.resolve();
+  // Keyed by match and team: two players of a match may share one browser in web tests.
+  const partialKey = (matchId: string, team: number): string => `${matchId}/${team}`;
+  const writePartial = (key: string, partial: PartialTurn | null): Promise<void> =>
+    (partialWrite = partialWrite.then(async () => {
+      const all = await loadPartials();
+      delete all[key];
+      if (partial) all[key] = partial;
+      // Turns of matches that ended otherwise (resigned, timed out) are never cleared: keep few.
+      for (const k of Object.keys(all).slice(0, -20)) delete all[k];
+      await d.storage.set(PARTIAL_KEY, all as unknown as JsonValue);
+    }));
 
   let flushing: Promise<void> | null = null;
   async function flushOnce(): Promise<void> {
@@ -281,7 +309,9 @@ export function createOnline(d: OnlineDeps): OnlineController {
       const r = await guard(async () => {
         await flush().catch(() => undefined);
         const [m, turns] = await Promise.all([service.getMatch(id), service.getTurns(id, 0)]);
-        return { m, turns };
+        await partialWrite;
+        const partial = (await loadPartials())[partialKey(id, m.myTeam)] ?? null;
+        return { m, turns, partial };
       });
       if (!r) return;
       upsert(r.m);
@@ -289,7 +319,7 @@ export function createOnline(d: OnlineDeps): OnlineController {
         patch({ invite: r.m.id });
         return;
       }
-      d.play(r.m, r.turns);
+      d.play(r.m, r.turns, r.partial);
     },
     async onlineCancel(id) {
       await guard(() => service.cancel(id));
@@ -349,6 +379,8 @@ export function createOnline(d: OnlineDeps): OnlineController {
       const box = await loadOutbox();
       box.push({ matchId, turn, outcome });
       await saveOutbox();
+      // The finished turn is safe in the outbox now.
+      await writePartial(partialKey(matchId, turn.team), null);
       try {
         await flush();
         d.toast(d.t('online.sent'));
@@ -364,6 +396,10 @@ export function createOnline(d: OnlineDeps): OnlineController {
       }
     },
     flush,
+    startTurn(matchId, n) {
+      void service.startTurn(matchId, n).catch(() => undefined);
+    },
+    savePartial: (matchId, partial) => writePartial(partialKey(matchId, partial.team), partial),
     async firstFinish(matchId) {
       const raw = await d.storage.get<JsonValue>(RECORDED_KEY);
       const ids = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];

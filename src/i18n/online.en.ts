@@ -39,6 +39,8 @@ export const ONLINE_EN = {
   'online.timedOutThem': '{name} ran out of time',
   'online.claim': 'Claim the win',
   'online.replyRule': 'Each move must be sent within 72 hours, or the opponent may claim the win.',
+  'online.forfeited': 'You left during this turn – it is skipped.',
+  'online.continued': 'Your turn continues where you left it.',
   'online.resign': 'Resign',
   'online.rematchAccept': 'Accept rematch',
   'online.rematchSent': 'Rematch sent',

@@ -158,6 +158,17 @@ export function replayTurns(setup: MatchSetup, turns: readonly TurnRecord[]): Ma
   return s;
 }
 
+/** The local player's turn so far, kept on the device so leaving mid-turn cannot undo it. */
+export interface PartialTurn {
+  n: number;
+  team: number;
+  /** Tick at which the turn began. */
+  from: number;
+  cmds: LoggedCommand[];
+  /** The match had been stepped up to this tick. */
+  upTo: number;
+}
+
 /**
  * Records the local player's turn while the live game loop steps the match. Call `beginTurn`
  * when the turn starts, `log` for every tick's commands *before* stepping, and `finish` once
@@ -192,6 +203,12 @@ export class TurnRecorder {
     if (s.phase !== 'over' && s.turnNumber === c.turn) return null;
     this.cur = null;
     return { n: c.n, team: c.team, from: c.from, to: s.tick, cmds: c.cmds, hash: hashState(s) };
+  }
+
+  /** The turn recorded so far (with the match at `s`), or null outside a local turn. */
+  partial(s: MatchState): PartialTurn | null {
+    const c = this.cur;
+    return c ? { n: c.n, team: c.team, from: c.from, cmds: [...c.cmds], upTo: s.tick } : null;
   }
 
   cancel(): void {

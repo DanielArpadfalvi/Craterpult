@@ -44,6 +44,8 @@ export const ONLINE_HU: Record<keyof typeof ONLINE_EN, string> = {
   'online.claim': 'Győzelem kérése',
   'online.replyRule':
     'Minden lépést 72 órán belül el kell küldeni, különben az ellenfél győzelmet kérhet.',
+  'online.forfeited': 'Kiléptél a köröd közben – a kör kimarad.',
+  'online.continued': 'A köröd ott folytatódik, ahol abbahagytad.',
   'online.resign': 'Feladás',
   'online.resignConfirm': 'Koppints újra a feladáshoz',
   'online.empty': 'Még nincs meccsed. Hozz létre egy meghívót, és küldd el a kódot egy barátodnak.',

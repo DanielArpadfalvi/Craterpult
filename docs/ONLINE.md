@@ -26,6 +26,7 @@
 | Ellenfél köre | a másik | a meccs újraépül a tárolt körökből; az ellenfél legutóbbi köre **élőben lejátszódik** (átugorható), a végén állapot-hash ellenőrzés. Eltérés → „desync” képernyő, a meccs nem folytatható. |
 | Várakozás | | 4 mp-es lekérdezés, amíg a meccs nyitva van; push, ha be van kapcsolva. |
 | Vége | | a győztes / döntetlen a beküldő kliens szerint (`outcomeOf`), a másik kliens a visszajátszással ellenőrzi; feladás: `resign_match`. |
+| Kör-kezdés | aki jön | a kör első parancsánál (lövés, mozgás) `start_turn(id, n)` → `started_turn` (a válaszórát nem állítja). A félkész kört a kliens folyamatosan menti (`craterpult.online.partial`, parancsonként és másodpercenként, kilépéskor). Újranyitáskor: van helyi mentés → a kör **onnan folytatódik** (ugyanaz a lövés, ugyanaz az eredmény; az ellenfél körét nem nézi újra); nincs mentés, de a szerver szerint elkezdődött (másik telefon, törölt adatok) → a kör **kimarad** (kényszerített `skip`). |
 | Időkorlát | a váró fél | minden lépésre **72 óra** (`REPLY_LIMIT_HOURS`, az SQL-ben is): az aktív meccs utolsó változásától számít (csatlakozás / beküldött kör). A listában „még X ideje van / még X a lépésre”; lejárta után a váró fél „Győzelem kérése” gombja (lista vagy várakozó kártya) → `claim_timeout(id)`; a szerver órája dönt (`conflict`, ha még korai). Az eredmény `timedOut` = a kifutott csapat, a győztes a másik. |
 | Visszavágó | bármelyik (ingyenes is) | `rematch_match(id, params, name)` a befejezett meccsre: az első kérő új nyitott meccset kap (friss seed, azonos beállítások), ami **csak a régi ellenfélnek** van fenntartva (`reserved`); a régi meccsen `rematch`/`rematchBy` jelzi. Az ellenfél listájában a „Te jössz” alatt „Visszavágó elfogadása” jelenik meg; ha ő is kéri, csatlakozik és ő kezd. Visszavonás = a nyitott meccs törlése (`cancel_match`), utána bárki újra kérhet. |
 
@@ -36,8 +37,8 @@ Meghívó link: `craterpult://join/KÓD` (Android intent-filter, iOS URL scheme)
 `join.html?code=KÓD` oldala, ami erre a linkre mutat. Weben `?join=KÓD`.
 
 Ismert korlátok (1.1):
-- Ha valaki a saját köre közben lép ki, a kör nem kerül beküldésre: újranyitáskor a kör elejéről játssza
-  újra (elvileg „újrapróbálhat” egy lövést). Védelem később: kör-kezdés jelzése a szervernek.
+- A kör-kezdés védelem kliensoldali: aki a jelzés elküldése előtt (offline) lép ki ÉS törli a helyi adatot,
+  még újrakezdheti a kört. A félkész kör a mentés óta eltelt (legfeljebb ~1 mp) idejét visszakapja.
 - A győztest a kliens állítja; a csalást a másik kliens hash-ellenőrzése jelzi, a szerver nem dönt.
 - A válasz-időkorlát fix 72 óra (nem állítható); lejárta után sem ér véget magától, a várónak kell kérnie a győzelmet. Nincs push-emlékeztető a lejárat előtt.
 - A visszavágó-ajánlatról nem megy push (csak a lista mutatja; push az elfogadáskor, mint csatlakozáskor).

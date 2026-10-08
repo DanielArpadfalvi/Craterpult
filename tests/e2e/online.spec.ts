@@ -216,3 +216,51 @@ test('online: after 72 hours without a move the opponent claims the win', async 
   await expect(guest.getByTestId('online-end-reason')).toHaveText('You ran out of time');
   expect(errors).toEqual([]);
 });
+
+test('online: leaving mid-turn cannot undo it – it continues, or is lost without its record', async ({
+  context,
+}) => {
+  test.setTimeout(180_000);
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  const errors = [...(await boot(host, '&full')), ...(await boot(guest, ''))];
+  await host.getByTestId('open-online').click();
+  await host.getByTestId('online-size-2').click();
+  await host.getByTestId('online-create').click();
+  const code = (await host.getByTestId('invite-code').textContent())!.trim();
+  await guest.getByTestId('open-online').click();
+  await guest.getByTestId('join-code').fill(code);
+  await guest.getByTestId('join-submit').click();
+  await expect(guest.getByTestId('hud')).toBeVisible();
+  const start = (await summary(guest))!;
+
+  // The guest fires and leaves while the shell is in the air.
+  await hook(guest, (api) => api.command({ t: 'fire', weapon: 'bazooka', angle: 450, power: 60 }));
+  await hook(guest, (api, n) => api.stepTicks(n), 20);
+  const left = (await summary(guest))!;
+  expect(left.phase).not.toBe('aiming');
+  await guest.getByTestId('pause').click();
+  await guest.getByTestId('quit').click();
+  await expect(guest.getByTestId('online')).toBeVisible();
+
+  // Reopening continues the same turn: no second shot.
+  await guest.locator('[data-status="active"] [data-testid="online-open"]').click();
+  await expect(guest.getByTestId('hud')).toBeVisible();
+  await expect(guest.getByTestId('toast')).toHaveText('Your turn continues where you left it.');
+  const back = (await summary(guest))!;
+  expect(back.tick).toBeGreaterThanOrEqual(left.tick);
+  expect(back.phase).not.toBe('aiming');
+
+  // Without the record on the device (another phone, cleared data) the started turn is lost.
+  await guest.getByTestId('pause').click();
+  await guest.getByTestId('quit').click();
+  await guest.evaluate(() => {
+    for (const k of Object.keys(localStorage))
+      if (k.endsWith('online.partial')) localStorage.removeItem(k);
+  });
+  await guest.locator('[data-status="active"] [data-testid="online-open"]').click();
+  await expect(guest.getByTestId('toast')).toHaveText('You left during this turn – it is skipped.');
+  const lost = await stepUntil(guest, (s) => s.overlay === 'waiting');
+  expect(lost.hp).toEqual(start.hp);
+  expect(errors).toEqual([]);
+});

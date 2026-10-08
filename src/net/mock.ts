@@ -30,6 +30,7 @@ interface Row {
   winner: number | null;
   resigned: number | null;
   timedOut?: number | null;
+  startedTurn?: number | null;
   updatedAt: number;
   /** Only this player may join (a rematch), or null. */
   reserved?: string | null;
@@ -103,6 +104,7 @@ export class MockOnline implements OnlineService {
       winner: r.winner,
       resigned: r.resigned,
       timedOut: r.timedOut ?? null,
+      startedTurn: r.startedTurn ?? null,
       updatedAt: r.updatedAt,
       rematch: r.rematch ?? null,
       rematchBy: r.rematchBy ?? null,
@@ -259,6 +261,21 @@ export class MockOnline implements OnlineService {
       old.updatedAt = this.now();
       this.save(db);
       return Promise.resolve(this.view(row));
+    } catch (e) {
+      return Promise.reject(e as Error);
+    }
+  }
+
+  startTurn(id: string, n: number): Promise<void> {
+    try {
+      const db = this.load();
+      const row = this.member(db, id);
+      const seat = row.players.indexOf(this.me());
+      if (row.status !== 'active' || row.nextTeam !== seat) throw new OnlineError('notYourTurn');
+      if (n !== row.turnCount) throw new OnlineError('conflict');
+      row.startedTurn = n;
+      this.save(db);
+      return Promise.resolve();
     } catch (e) {
       return Promise.reject(e as Error);
     }

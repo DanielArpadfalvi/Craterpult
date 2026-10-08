@@ -191,6 +191,21 @@ describe('MockOnline', () => {
     expect(await b.claimTimeout(m.id)).toMatchObject({ winner: 0, timedOut: 1 });
   });
 
+  it('only the player to move can mark the current turn as started', async () => {
+    const { a, b } = pair();
+    const m = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(m.code, 'Bob');
+    expect((await a.getMatch(m.id)).startedTurn).toBeNull();
+    expect(await code(a.startTurn(m.id, 0))).toBe('notYourTurn');
+    expect(await code(b.startTurn(m.id, 1))).toBe('conflict');
+    const before = (await b.getMatch(m.id)).updatedAt;
+    await b.startTurn(m.id, 0);
+    const after = await a.getMatch(m.id);
+    expect(after.startedTurn).toBe(0);
+    // The reply clock keeps running from the last turn.
+    expect(after.updatedAt).toBe(before);
+  });
+
   it('cleans team names', () => {
     expect(cleanName('  Very long crew name here  ')).toBe('Very long crew n');
     expect(cleanName('a\u0007b\n')).toBe('ab');
@@ -277,7 +292,10 @@ describe('SupabaseOnline', () => {
         return [200, { access_token: 'AT', refresh_token: 'RT', user: { id: 'me' } }];
       if (path === '/rest/v1/rpc/rematch_match') return [200, { ...VIEW, status: 'open' }];
       if (path === '/rest/v1/rpc/get_match')
-        return [200, { ...VIEW, status: 'finished', rematch: 'u2', rematchBy: 1, timedOut: 0 }];
+        return [
+          200,
+          { ...VIEW, status: 'finished', rematch: 'u2', rematchBy: 1, timedOut: 0, startedTurn: 4 },
+        ];
       return [404, {}];
     });
     const s = new SupabaseOnline({
@@ -298,8 +316,13 @@ describe('SupabaseOnline', () => {
         () => calls.find((c) => c.path === '/rest/v1/rpc/claim_timeout')?.body,
       ),
     ).toEqual({ match_id: 'u0' });
+    await s.startTurn('u0', 3).catch(() => undefined);
+    expect(calls.find((c) => c.path === '/rest/v1/rpc/start_turn')?.body).toEqual({
+      match_id: 'u0',
+      n: 3,
+    });
     const old = await s.getMatch('u0');
-    expect(old).toMatchObject({ rematch: 'u2', rematchBy: 1, timedOut: 0 });
+    expect(old).toMatchObject({ rematch: 'u2', rematchBy: 1, timedOut: 0, startedTurn: 4 });
     expect(rematchOffered(old)).toBe(true);
   });
 

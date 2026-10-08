@@ -1,9 +1,10 @@
-import { createMatch, type MatchSetup } from '../core/match';
+import { createMatch, step, type MatchSetup } from '../core/match';
 import {
   applyTurn,
   OnlineReplayError,
   outcomeOf,
   TurnRecorder,
+  type PartialTurn,
   type ReplayError,
   type TurnOutcome,
   type TurnRecord,
@@ -17,8 +18,18 @@ export interface OnlineStepResult {
   submit?: { turn: TurnRecord; outcome: TurnOutcome };
   /** The opponent's turn just finished playing back. */
   remoteDone?: boolean;
+  /** The local player's first command of turn `started`: tell the server the turn is on. */
+  started?: number;
   /** A received turn did not reproduce: the match cannot go on. */
   desync?: ReplayError;
+}
+
+/** How a local turn left half-way is picked up again when the match is reopened. */
+export interface OnlineResume {
+  /** The turn as far as this device recorded it before leaving, or null. */
+  partial: PartialTurn | null;
+  /** The server already knows the player began the current turn. */
+  started: boolean;
 }
 
 /**
@@ -34,6 +45,15 @@ export class OnlinePlay {
   private remote: { turn: TurnRecord; i: number; turnNumber: number } | null = null;
   private readonly recorder = new TurnRecorder();
   private broken: ReplayError | null = null;
+  /** Turn whose start was reported (first local command), or -1. */
+  private startedN = -1;
+  private justStarted = false;
+  /** The current turn is forfeited: skip it as soon as aiming begins. */
+  private forced = false;
+  /** How the current local turn was picked up by `start` (see {@link OnlineResume}). */
+  resumed: 'fresh' | 'continued' | 'forfeited' = 'fresh';
+  /** A turn that a continued partial turn already finished (send it). */
+  pendingSubmit: { turn: TurnRecord; outcome: TurnOutcome } | null = null;
 
   constructor(
     readonly setup: MatchSetup,
@@ -41,10 +61,13 @@ export class OnlinePlay {
   ) {}
 
   /** Rebuild the match from `turns`; an unseen last turn of the opponent is queued to watch. */
-  start(turns: readonly TurnRecord[]): MatchState {
+  start(turns: readonly TurnRecord[], resume?: OnlineResume): MatchState {
     const s = createMatch(this.setup);
     const last = turns[turns.length - 1];
-    const watch = last && last.team !== this.myTeam ? 1 : 0;
+    // Our turn already began after that one: it was watched, go straight back to our turn.
+    const own = resume?.partial?.team === this.myTeam ? resume.partial : null;
+    const begun = !!resume && (resume.started || own?.n === turns.length);
+    const watch = last && last.team !== this.myTeam && !begun ? 1 : 0;
     try {
       for (let i = 0; i < turns.length - watch; i++) applyTurn(s, turns[i] as TurnRecord, i);
     } catch (e) {
@@ -53,7 +76,45 @@ export class OnlinePlay {
     this.done = turns.length - watch;
     if (watch) this.queue.push(last as TurnRecord);
     this.beginIfLocal(s);
+    if (resume && this.recorder.active && !watch) this.resume(s, resume);
     return s;
+  }
+
+  /**
+   * Leaving during your own turn must not let you play it again: the turn recorded on this
+   * device continues where it stopped; without it, a turn the server saw begin is forfeited.
+   */
+  private resume(s: MatchState, r: OnlineResume): void {
+    const p = r.partial;
+    if (p && p.team === this.myTeam && p.n === this.done && p.from === s.tick) {
+      this.resumed = 'continued';
+      this.startedN = this.done;
+      let i = 0;
+      while (s.tick < p.upTo && s.phase !== 'over' && this.recorder.active) {
+        const tick = s.tick + 1;
+        const cmds: Command[] = [];
+        while (i < p.cmds.length && (p.cmds[i] as LoggedCommand).tick === tick)
+          cmds.push((p.cmds[i++] as LoggedCommand).cmd);
+        this.recorder.log(s, cmds);
+        step(s, cmds);
+        const turn = this.recorder.finish(s);
+        if (turn) {
+          this.done++;
+          this.pendingSubmit = { turn, outcome: outcomeOf(s) };
+          this.beginIfLocal(s);
+        }
+      }
+    } else if (r.started) {
+      this.resumed = 'forfeited';
+      this.startedN = this.done;
+      this.forced = true;
+    }
+  }
+
+  /** The local turn recorded so far, once it has begun (null before the first command). */
+  partial(s: MatchState): PartialTurn | null {
+    const p = this.recorder.partial(s);
+    return p && this.startedN === p.n ? p : null;
   }
 
   /** Index of the next turn the server does not have yet from us / we have not seen. */
@@ -100,8 +161,17 @@ export class OnlinePlay {
   beforeStep(s: MatchState, local: readonly Command[]): Command[] | null {
     if (this.broken || s.phase === 'over') return [];
     if (this.isLocal(s.activeTeam)) {
-      this.recorder.log(s, local);
-      return [...local];
+      let cmds: readonly Command[] = local;
+      if (this.forced) {
+        cmds = s.phase === 'aiming' ? [{ t: 'skip' }] : [];
+        if (cmds.length) this.forced = false;
+      }
+      if (cmds.length > 0 && this.startedN !== this.done) {
+        this.startedN = this.done;
+        this.justStarted = true;
+      }
+      this.recorder.log(s, cmds);
+      return [...cmds];
     }
     if (!this.remote) {
       const next = this.queue.shift();
@@ -138,11 +208,13 @@ export class OnlinePlay {
       this.beginIfLocal(s);
       return { remoteDone: true };
     }
+    const started = this.justStarted ? { started: this.startedN } : {};
+    this.justStarted = false;
     const turn = this.recorder.finish(s);
-    if (!turn) return {};
+    if (!turn) return started;
     this.done++;
     this.beginIfLocal(s);
-    return { submit: { turn, outcome: outcomeOf(s) } };
+    return { ...started, submit: { turn, outcome: outcomeOf(s) } };
   }
 
   /** Play every queued opponent turn at once (the "skip replay" button). */

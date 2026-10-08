@@ -3,7 +3,7 @@ import { step } from '../../../src/core/match';
 import { onlineSetup, sanitizeParams, type TurnRecord } from '../../../src/core/online';
 import { hashState } from '../../../src/core/replay';
 import type { Command, MatchState } from '../../../src/core/types';
-import { OnlinePlay } from '../../../src/game/onlinePlay';
+import { OnlinePlay, type OnlineResume } from '../../../src/game/onlinePlay';
 
 const SETUP = onlineSetup(
   sanitizeParams({ seed: 'op-1', teamSize: 2, style: 'flats', turnSeconds: 30 }),
@@ -11,9 +11,9 @@ const SETUP = onlineSetup(
 );
 
 /** One client: its OnlinePlay and live match, stepped like the game loop. */
-function client(myTeam: number, turns: TurnRecord[]) {
+function client(myTeam: number, turns: TurnRecord[], resume?: OnlineResume) {
   const play = new OnlinePlay(SETUP, myTeam);
-  const s = play.start(turns);
+  const s = play.start(turns, resume);
   return { play, s };
 }
 
@@ -123,5 +123,89 @@ describe('OnlinePlay', () => {
     const sent = run(joiner, fire).sent;
     joiner.play.enqueue(sent);
     expect(joiner.play.waiting(joiner.s)).toBe(true);
+  });
+
+  /** Step our own turn `ticks` times with `input`, collecting the "turn started" reports. */
+  function partly(c: { play: OnlinePlay; s: MatchState }, ticks: number, input = fire) {
+    const started: number[] = [];
+    for (let k = 1; k <= ticks; k++) {
+      const cmds = c.play.beforeStep(c.s, input(k));
+      step(c.s, cmds ?? []);
+      const r = c.play.afterStep(c.s);
+      if (r.started !== undefined) started.push(r.started);
+    }
+    return started;
+  }
+
+  it('reports the turn as started once, on the first command', () => {
+    const joiner = client(0, []);
+    expect(partly(joiner, 9)).toEqual([]);
+    expect(joiner.play.partial(joiner.s)).toBeNull();
+    expect(
+      partly(joiner, 30, (k) => (k === 1 ? fire(10) : k === 5 ? [{ t: 'move', dir: 1 }] : [])),
+    ).toEqual([0]);
+    expect(joiner.play.partial(joiner.s)).toMatchObject({
+      n: 0,
+      team: 0,
+      from: 0,
+      upTo: joiner.s.tick,
+    });
+  });
+
+  it('a turn left half-way continues where it stopped (the same shot, the same result)', () => {
+    const joiner = client(0, []);
+    partly(joiner, 40);
+    const p = joiner.play.partial(joiner.s)!;
+    expect(p.cmds).toHaveLength(1);
+    const again = client(0, [], { partial: p, started: true });
+    expect(again.play.resumed).toBe('continued');
+    expect(again.s.tick).toBe(joiner.s.tick);
+    expect(hashState(again.s)).toBe(hashState(joiner.s));
+    // Played to the end without more input, both phones send the identical turn.
+    const a = run(joiner, () => []).sent;
+    const b = run(again, () => []).sent;
+    expect(b).toEqual(a);
+    // Nothing reports the start again for a continued turn.
+    expect(partly(client(0, [], { partial: p, started: true }), 5)).toEqual([]);
+  });
+
+  it('a started turn without its record on this device is forfeited (skipped)', () => {
+    const joiner = client(0, []);
+    const hp = joiner.s.units.map((u) => u.hp);
+    const lost = client(0, [], { partial: null, started: true });
+    expect(lost.play.resumed).toBe('forfeited');
+    const [t] = run(lost, fire).sent as [TurnRecord];
+    expect(t.cmds[0]?.cmd).toEqual({ t: 'skip' });
+    expect(lost.s.units.map((u) => u.hp)).toEqual(hp);
+    expect(lost.s.teams[0]?.ammo.grenade).toBe(joiner.s.teams[0]?.ammo.grenade);
+  });
+
+  it('a record of another turn, or no start on the server, plays the turn fresh', () => {
+    const joiner = client(0, []);
+    partly(joiner, 20);
+    const p = joiner.play.partial(joiner.s)!;
+    expect(client(0, [], { partial: { ...p, n: 2 }, started: false }).play.resumed).toBe('fresh');
+    expect(client(0, [], { partial: null, started: false }).play.resumed).toBe('fresh');
+    expect(client(0, [], { partial: { ...p, team: 1 }, started: false }).play.resumed).toBe(
+      'fresh',
+    );
+  });
+
+  it("does not replay the opponent's turn again once ours began after it", () => {
+    const joiner = client(0, []);
+    const t0 = run(joiner, fire).sent;
+    const creator = client(1, t0);
+    run(creator, () => [], 1); // start watching
+    creator.play.fastForward(creator.s, step);
+    partly(creator, 40);
+    const p = creator.play.partial(creator.s)!;
+    const reopened = client(1, t0, { partial: p, started: true });
+    expect(reopened.play.replaying).toBe(false);
+    expect(reopened.play.resumed).toBe('continued');
+    expect(hashState(reopened.s)).toBe(hashState(creator.s));
+    // Forfeiting works the same way after the opponent's turn.
+    const lost = client(1, t0, { partial: null, started: true });
+    expect(lost.play.replaying).toBe(false);
+    expect(lost.play.resumed).toBe('forfeited');
   });
 });
