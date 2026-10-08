@@ -13,7 +13,7 @@ módban fut), háttérszín `#05040f`.
 | Workflow | Mikor | Mit csinál | Kell hozzá secret? |
 |---|---|---|---|
 | **CI** (`ci.yml`) | minden push / PR | typecheck, lint, unit, build, e2e | nem |
-| **Android** `debug-apk` | minden push | debug APK → artifact + „android-debug-latest” pre-release | nem |
+| **Android** `debug-apk` | minden push | debug APK → artifact + „android-debug-latest” pre-release; ha vannak `GDRIVE_*` secretek, a Google Drive „Mobile games” mappájába is (`craterpult-latest.apk`, mindig felülírva) | nem (Drive: igen) |
 | **Android** `release-aab` | kézi indítás, push a `main`-re, `v*` tag | aláírt AAB → artifact; opcionálisan feltöltés Google Playre | igen (lent) |
 | **iOS** `simulator` | minden push | szimulátoros build (aláírás nélkül) → artifact, bizonyítja, hogy fordul | nem |
 | **iOS** `release` | kézi indítás, push a `main`-re, `v*` tag | aláírt IPA → artifact; feltöltés TestFlightra | igen (lent) |
@@ -57,6 +57,28 @@ GitHub → a repó → *Settings → Secrets and variables → Actions → New r
 | `ASC_ISSUER_ID` | iOS | App Store Connect Issuer ID |
 | `ASC_KEY_P8` | iOS | az `AuthKey_….p8` base64-ben |
 | `APPLE_TEAM_ID` | iOS | Apple Developer Team ID (2.2) |
+| `GDRIVE_CLIENT_ID` | Android | opcionális: Google OAuth kliens (Desktop app) a Drive-feltöltéshez (lent) |
+| `GDRIVE_CLIENT_SECRET` | Android | a kliens titka |
+| `GDRIVE_REFRESH_TOKEN` | Android | a `scripts/drive-auth.ts` által kiírt refresh token |
+| `GDRIVE_FOLDER_ID` | Android | opcionális: a célmappa azonosítója (különben a „Mobile games” nevű mappát keresi) |
+
+### Legfrissebb APK a Google Drive-on
+
+A `debug-apk` job minden push után a Drive „Mobile games” mappájába másolja az APK-t
+`craterpult-latest.apk` néven. Ha már van ilyen fájl, a tartalmát cseréli (azonos fájl-azonosító,
+így a megosztott link is mindig a legújabb buildre mutat). Secretek nélkül a lépés kimarad.
+
+Egyszeri beállítás:
+1. [Google Cloud console](https://console.cloud.google.com/) → új projekt → *APIs & Services →
+   Library* → **Google Drive API** engedélyezése.
+2. *OAuth consent screen*: External, a saját Gmail-címed tesztfelhasználóként, majd **Publish app**
+   („In production”). Ha „Testing” állapotban marad, a refresh token 7 nap után lejár.
+3. *Credentials → Create credentials → OAuth client ID* → típus: **Desktop app**. Ebből lesz a
+   `GDRIVE_CLIENT_ID` és a `GDRIVE_CLIENT_SECRET`.
+4. Helyben: `GDRIVE_CLIENT_ID=… GDRIVE_CLIENT_SECRET=… npx tsx scripts/drive-auth.ts`. Nyisd meg a
+   kiírt linket, és jelentkezz be a Drive tulajdonosával. A terminál kiírja a `GDRIVE_REFRESH_TOKEN`
+   értékét.
+5. Vedd fel a három secretet (opcionálisan a `GDRIVE_FOLDER_ID`-t is: ez a mappa URL-jének vége).
 
 ---
 

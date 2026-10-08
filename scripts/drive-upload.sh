@@ -21,7 +21,11 @@ TOKEN=$(curl -sfS https://oauth2.googleapis.com/token \
 AUTH="Authorization: Bearer $TOKEN"
 
 # Drive query strings need ' and \ escaped.
-q_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
+q_escape() {
+  local v=${1//\\/\\\\}
+  v=${v//\'/\\\'}
+  printf '%s' "$v"
+}
 
 FOLDER="${GDRIVE_FOLDER_ID:-}"
 if [ -z "$FOLDER" ]; then

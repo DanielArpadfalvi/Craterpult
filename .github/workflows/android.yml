@@ -59,6 +59,18 @@ jobs:
         with:
           name: craterpult-debug-apk
           path: craterpult-debug-*.apk
+      - name: Copy the APK to Google Drive (overwrites the previous one)
+        env:
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          if [ -z "$GDRIVE_CLIENT_ID" ] || [ -z "$GDRIVE_CLIENT_SECRET" ] || [ -z "$GDRIVE_REFRESH_TOKEN" ]; then
+            echo "::notice::Google Drive secrets missing - skipping the Drive upload (see docs/RELEASE.md)."
+            exit 0
+          fi
+          bash scripts/drive-upload.sh craterpult-debug-*.apk craterpult-latest.apk
       - name: Publish to "android-debug-latest" pre-release
         env:
           GH_TOKEN: ${{ github.token }}
