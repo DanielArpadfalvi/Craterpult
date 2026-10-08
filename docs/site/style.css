@@ -213,8 +213,16 @@ td {
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
-/* Language switching: without JS both languages show; with JS only the chosen one. */
-html[data-lang='en'] [lang='hu'],
-html[data-lang='hu'] [lang='en'] {
+/* Language switching: without JS every language shows; with JS only the chosen one. */
+html[data-lang]:not([data-lang='en']) body [lang='en'],
+html[data-lang]:not([data-lang='hu']) body [lang='hu'],
+html[data-lang]:not([data-lang='de']) body [lang='de'],
+html[data-lang]:not([data-lang='es']) body [lang='es'],
+html[data-lang]:not([data-lang='pt']) body [lang='pt'] {
   display: none !important;
+}
+/* Long compound words (German) must wrap on phones instead of widening the page. */
+main {
+  overflow-wrap: break-word;
+  hyphens: auto;
 }

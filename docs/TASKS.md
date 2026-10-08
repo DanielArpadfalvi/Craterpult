@@ -57,3 +57,4 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done (verified). Acceptance cri
 - [x] T10.2 Spanish (es) – dictionaries, push texts, store listing `store/listing/es` (+ ES banned words), e2e layout checks in ES
 - [x] T10.3 Brazilian Portuguese (pt) – dictionaries, push texts, store listing `store/listing/pt` (+ PT banned words), settings language picker as a wrapping grid (5 languages at 360 px), e2e layout checks in PT
 - [x] T10.4 Store screenshots per language – DE/ES/PT captions, locale and crew name per language in `scripts/store-frames.ts` (`STORE_LANGS`, `STORE_LOCALE`), generator runs every listing language; unit test keeps captions and listings in sync
+- [x] T10.5 Public site in DE/ES/PT – `lang.js` + CSS for 5 languages (language buttons on every page), index, join, support (FAQ incl. online play) and the privacy policy translated (English prevails; LGPD/ANPD for Brazil), long words wrap on phones; checked at 360/390 px; published to craterpult-site

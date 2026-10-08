@@ -1,18 +1,23 @@
 // Language switch for the Craterpult site: ?lang=hu / #hu, then the saved choice, then the browser.
 (function () {
+  var LANGS = ['en', 'hu', 'de', 'es', 'pt'];
   var root = document.documentElement;
+  function known(l) {
+    return LANGS.indexOf(l) >= 0;
+  }
   function pick() {
     var q = new URLSearchParams(location.search).get('lang');
-    if (q === 'en' || q === 'hu') return q;
-    if (location.hash === '#hu' || location.hash === '#en') return location.hash.slice(1);
+    if (known(q)) return q;
+    if (known(location.hash.slice(1))) return location.hash.slice(1);
     try {
       var saved = localStorage.getItem('craterpult-site-lang');
-      if (saved === 'en' || saved === 'hu') return saved;
+      if (known(saved)) return saved;
     } catch {
       /* storage unavailable */
     }
     var nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-    return nav.toLowerCase().indexOf('hu') === 0 ? 'hu' : 'en';
+    var code = nav.toLowerCase().slice(0, 2);
+    return known(code) ? code : 'en';
   }
   function apply(lang) {
     root.setAttribute('data-lang', lang);
