@@ -11,6 +11,7 @@ here, and continue from its **Next** line.
 **Mode:** autonomous, directly on `main`, merge/push after every task (owner's instruction).
 
 **Done (all on `main`, CI green unless noted):**
+- T9.9 "Delete my online data" in Settings (GDPR self-service, RPC `delete_my_data`, migration `20261009100000`), privacy page updated in 5 languages and republished (commit: see `git log`, "T9.9").
 - `7e00277` T9.3 online rematch (+ merged the old `qa-pass-1007` branch).
 - `fa846ee` T9.4 72-hour reply limit, "Claim the win".
 - `1d4eb07` T9.5 turn-start signal: leaving mid-turn continues the turn / forfeits it without a local record.
@@ -28,4 +29,4 @@ here, and continue from its **Next** line.
 
 **Waiting on the owner:** Supabase project + `pg_cron` (T9.2, `docs/ONLINE.md` 4), RevenueCat (T8.4), store data forms per `docs/store-privacy-answers.md` 7, iOS privacy manifest for 1.1.
 
-**Next:** M10 is done. Candidates (pick by value): (a) an in-app "delete my online data" button (RPC deleting the player's matches/tokens/auth user – GDPR self-service, Apple guideline 5.1.1(v) friendly); (b) per-opponent online record ("Rivals"); (c) iOS `PrivacyInfo.xcprivacy` entries for 1.1 per `docs/store-privacy-answers.md` 7 (only when the owner ships online). Owner items unchanged (Supabase, RevenueCat, store forms).
+**Next:** (b) per-opponent online record ("Rivals": wins/losses per opponent name from the match list, quick rematch) or (c) iOS `PrivacyInfo.xcprivacy` entries for 1.1 per `docs/store-privacy-answers.md` 7 (only when the owner ships online). 8 SQL migrations now (apply in order). Owner items unchanged (Supabase, RevenueCat, store forms).

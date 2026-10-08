@@ -316,7 +316,9 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
           {confirming ? t('online.resignConfirm') : t('online.resign')}
         </button>
       )}
-      {m.status === 'finished' && <RematchButton m={m} s={s} actions={actions} />}
+      {m.status === 'finished' && !m.opponentGone && (
+        <RematchButton m={m} s={s} actions={actions} />
+      )}
       {m.status === 'active' && !claim && (
         <span class={`online-pill${mine ? ' is-mine' : ''}`}>{mine ? t('online.play') : '…'}</span>
       )}

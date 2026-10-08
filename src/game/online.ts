@@ -90,6 +90,8 @@ export interface OnlineActions {
   onlineOpen(id: string): Promise<void>;
   onlineCancel(id: string): Promise<void>;
   onlineResign(id: string): Promise<void>;
+  /** Erase the player's online data on the server and this device; false when it failed. */
+  onlineDeleteData(): Promise<boolean>;
   /** Win a match whose opponent ran out of reply time. */
   onlineClaimTimeout(id: string): Promise<void>;
   /** Offer a rematch of a finished match, or take up the opponent's offer (then play it). */
@@ -374,6 +376,20 @@ export function createOnline(d: OnlineDeps): OnlineController {
       patch({ confirmResign: null });
       const m = await guard(() => service.resign(id));
       if (m) upsert(m);
+    },
+    async onlineDeleteData() {
+      try {
+        await service.deleteMyData();
+      } catch {
+        return false;
+      }
+      // Nothing of the old identity stays queued on this device either.
+      outbox = [];
+      await saveOutbox();
+      partialWrite = partialWrite.then(() => d.storage.remove(PARTIAL_KEY));
+      await partialWrite;
+      patch({ matches: [], invite: null, confirmResign: null, error: null });
+      return true;
     },
     async onlineClaimTimeout(id) {
       const m = await guard(() => service.claimTimeout(id));

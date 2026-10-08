@@ -23,6 +23,8 @@ export interface OnlineMatch {
   resigned: number | null;
   /** Index of the turn its player has begun (first command sent), or null. */
   startedTurn: number | null;
+  /** The opponent deleted their online data (their seat is anonymous; no rematch). */
+  opponentGone: boolean;
   /** Team that let its reply time run out (the opponent claimed the win), or null. */
   timedOut: number | null;
   /** Last change, ms since the epoch (sorting only). */
@@ -91,6 +93,12 @@ export interface OnlineService {
    * the time). Fails with 'conflict' when it is too early or not the opponent's turn.
    */
   claimTimeout(id: string): Promise<OnlineMatch>;
+  /**
+   * Erase the player's online data (GDPR self-service): their open invites go, active matches
+   * are resigned, their seat in every other match is anonymized, push tokens and the anonymous
+   * account are deleted. The next online action signs in as a new player.
+   */
+  deleteMyData(): Promise<void>;
   /** Removes an open match nobody joined yet (creator only). */
   cancel(id: string): Promise<void>;
   /** Device token for "your turn" pushes (FCM / APNs) and the language of their text. */

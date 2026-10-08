@@ -202,6 +202,15 @@ export const de: Record<TranslationKey, string> = {
   'settings.resetConfirm': 'Alles löschen',
   'settings.resetCancel': 'Abbrechen',
   'settings.resetDone': 'Fortschritt zurückgesetzt.',
+  'settings.deleteOnline': 'Meine Online-Daten löschen',
+  'settings.deleteOnlineHint':
+    'Löscht deine Online-Spiele, deinen Teamnamen und Push-Token von unserem Server (laufende Spiele werden aufgegeben). Der lokale Fortschritt bleibt.',
+  'settings.deleteOnlineQuestion':
+    'Online-Daten löschen? Laufende Spiele gehen verloren, das kann nicht rückgängig gemacht werden.',
+  'settings.deleteOnlineConfirm': 'Online-Daten löschen',
+  'settings.deleteOnlineDone': 'Online-Daten gelöscht.',
+  'settings.deleteOnlineFailed':
+    'Löschen fehlgeschlagen – prüfe die Verbindung und versuch es erneut.',
   'settings.sectionAbout': 'Info',
   'settings.privacy': 'Datenschutzerklärung',
   'settings.privacyHint': 'Was das Spiel speichert und warum',

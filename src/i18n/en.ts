@@ -200,6 +200,14 @@ export const en = {
   'settings.resetConfirm': 'Erase everything',
   'settings.resetCancel': 'Cancel',
   'settings.resetDone': 'Progress reset.',
+  'settings.deleteOnline': 'Delete my online data',
+  'settings.deleteOnlineHint':
+    'Erases your online matches, team name and push token from our server (active matches are resigned). Local progress stays.',
+  'settings.deleteOnlineQuestion':
+    'Delete your online data? Active matches are lost and this cannot be undone.',
+  'settings.deleteOnlineConfirm': 'Delete online data',
+  'settings.deleteOnlineDone': 'Online data deleted.',
+  'settings.deleteOnlineFailed': 'Could not delete – check the connection and try again.',
   'settings.sectionAbout': 'About',
   'settings.privacy': 'Privacy Policy',
   'settings.privacyHint': 'What the game stores and why',

@@ -264,3 +264,35 @@ test('online: leaving mid-turn cannot undo it – it continues, or is lost witho
   expect(lost.hp).toEqual(start.hp);
   expect(errors).toEqual([]);
 });
+
+test('settings: deleting online data clears the matches and resigns the active ones', async ({
+  context,
+}) => {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  const errors = [...(await boot(host, '&full')), ...(await boot(guest, ''))];
+  await host.getByTestId('open-online').click();
+  await host.getByTestId('online-create').click();
+  const code = (await host.getByTestId('invite-code').textContent())!.trim();
+  await guest.getByTestId('open-online').click();
+  await guest.getByTestId('join-code').fill(code);
+  await guest.getByTestId('join-submit').click();
+  await expect(guest.getByTestId('hud')).toBeVisible();
+  await guest.getByTestId('pause').click();
+  await guest.getByTestId('quit').click();
+  await guest.getByTestId('online-back').click();
+
+  await guest.getByTestId('open-settings').click();
+  await guest.getByTestId('delete-online').click();
+  await guest.getByTestId('delete-online-confirm').click();
+  await expect(guest.getByTestId('delete-online-done')).toBeVisible();
+  await guest.getByTestId('settings-back').click();
+  await guest.getByTestId('open-online').click();
+  await expect(guest.getByTestId('online-empty')).toBeVisible();
+
+  // The host sees the match as won, against an anonymous opponent.
+  await host.getByTestId('online-refresh').click();
+  await expect(host.locator('[data-status="finished"]')).toContainText('vs ?');
+  await expect(host.getByTestId('online-rematch')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

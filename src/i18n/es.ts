@@ -201,6 +201,14 @@ export const es: Record<TranslationKey, string> = {
   'settings.resetConfirm': 'Borrar todo',
   'settings.resetCancel': 'Cancelar',
   'settings.resetDone': 'Progreso borrado.',
+  'settings.deleteOnline': 'Borrar mis datos online',
+  'settings.deleteOnlineHint':
+    'Borra tus partidas online, el nombre de tu equipo y tu token push de nuestro servidor (te rindes en las partidas activas). El progreso local se queda.',
+  'settings.deleteOnlineQuestion':
+    '¿Borrar tus datos online? Las partidas activas se pierden y no se puede deshacer.',
+  'settings.deleteOnlineConfirm': 'Borrar datos online',
+  'settings.deleteOnlineDone': 'Datos online borrados.',
+  'settings.deleteOnlineFailed': 'No se pudo borrar: revisa la conexión e inténtalo de nuevo.',
   'settings.sectionAbout': 'Información',
   'settings.privacy': 'Política de privacidad',
   'settings.privacyHint': 'Qué guarda el juego y por qué',

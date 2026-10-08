@@ -20,6 +20,7 @@ export class UnavailableOnline implements OnlineService {
   rematch = (): Promise<never> => this.fail();
   claimTimeout = (): Promise<never> => this.fail();
   startTurn = (): Promise<never> => this.fail();
+  deleteMyData = (): Promise<never> => this.fail();
   cancel = (): Promise<void> => this.fail();
   registerPushToken = (): Promise<void> => this.fail();
 }

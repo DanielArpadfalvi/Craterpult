@@ -201,6 +201,15 @@ export const hu: Record<TranslationKey, string> = {
   'settings.resetConfirm': 'Mindent törlök',
   'settings.resetCancel': 'Mégse',
   'settings.resetDone': 'Előrehaladás törölve.',
+  'settings.deleteOnline': 'Online adataim törlése',
+  'settings.deleteOnlineHint':
+    'Törli az online meccseidet, a csapatneved és a push-tokened a szerverünkről (az aktív meccseket feladod). A helyi előrehaladás megmarad.',
+  'settings.deleteOnlineQuestion':
+    'Törlöd az online adataidat? Az aktív meccsek elvesznek, és ez nem vonható vissza.',
+  'settings.deleteOnlineConfirm': 'Online adatok törlése',
+  'settings.deleteOnlineDone': 'Online adatok törölve.',
+  'settings.deleteOnlineFailed':
+    'Nem sikerült törölni – ellenőrizd a kapcsolatot, és próbáld újra.',
   'settings.sectionAbout': 'Névjegy',
   'settings.privacy': 'Adatvédelmi tájékoztató',
   'settings.privacyHint': 'Mit tárol a játék, és miért',

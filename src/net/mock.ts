@@ -105,6 +105,8 @@ export class MockOnline implements OnlineService {
       resigned: r.resigned,
       timedOut: r.timedOut ?? null,
       startedTurn: r.startedTurn ?? null,
+      opponentGone:
+        r.status !== 'open' && r.players[1 - Math.max(0, r.players.indexOf(me))] === null,
       updatedAt: r.updatedAt,
       rematch: r.rematch ?? null,
       rematchBy: r.rematchBy ?? null,
@@ -255,6 +257,7 @@ export class MockOnline implements OnlineService {
         return Promise.resolve(this.view(this.member(db, next.id)));
       }
       const opponent = old.players.find((p) => p !== me) ?? null;
+      if (!opponent) throw new OnlineError('notFound');
       const row = this.insert(db, params, name, opponent);
       old.rematch = row.id;
       old.rematchBy = old.players.indexOf(me);
@@ -302,6 +305,38 @@ export class MockOnline implements OnlineService {
     } catch (e) {
       return Promise.reject(e as Error);
     }
+  }
+
+  deleteMyData(): Promise<void> {
+    const db = this.load();
+    const me = this.me();
+    for (const [id, row] of Object.entries(db.matches)) {
+      if (row.status === 'open' && (row.players[1] === me || row.reserved === me)) {
+        delete db.matches[id];
+        delete db.turns[id];
+        for (const m of Object.values(db.matches))
+          if (m.rematch === id) {
+            m.rematch = null;
+            m.rematchBy = null;
+          }
+        continue;
+      }
+      const seat = row.players.indexOf(me);
+      if (seat < 0) continue;
+      if (row.status === 'active') {
+        row.status = 'finished';
+        row.resigned = seat;
+        row.winner = 1 - seat;
+        row.nextTeam = -1;
+        row.updatedAt = this.now();
+      }
+      row.players[seat] = null;
+      row.names[seat] = '?';
+    }
+    this.save(db);
+    // A fresh identity next time, like a deleted anonymous account.
+    this.o.identity.setItem(MOCK_PLAYER_KEY, '');
+    return Promise.resolve();
   }
 
   cancel(id: string): Promise<void> {

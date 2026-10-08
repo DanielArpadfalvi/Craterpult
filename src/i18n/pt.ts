@@ -202,6 +202,14 @@ export const pt: Record<TranslationKey, string> = {
   'settings.resetConfirm': 'Apagar tudo',
   'settings.resetCancel': 'Cancelar',
   'settings.resetDone': 'Progresso apagado.',
+  'settings.deleteOnline': 'Apagar meus dados online',
+  'settings.deleteOnlineHint':
+    'Apaga suas partidas online, o nome da equipe e o token push do nosso servidor (você desiste das partidas ativas). O progresso local continua.',
+  'settings.deleteOnlineQuestion':
+    'Apagar seus dados online? As partidas ativas são perdidas e isso não pode ser desfeito.',
+  'settings.deleteOnlineConfirm': 'Apagar dados online',
+  'settings.deleteOnlineDone': 'Dados online apagados.',
+  'settings.deleteOnlineFailed': 'Não foi possível apagar: verifique a conexão e tente de novo.',
   'settings.sectionAbout': 'Sobre',
   'settings.privacy': 'Política de privacidade',
   'settings.privacyHint': 'O que o jogo guarda e por quê',

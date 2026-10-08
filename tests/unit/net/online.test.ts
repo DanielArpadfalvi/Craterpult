@@ -206,6 +206,54 @@ describe('MockOnline', () => {
     expect(after.updatedAt).toBe(before);
   });
 
+  it('deleting my data: invites go, active matches are resigned, my seat is anonymized', async () => {
+    const { a, b, c } = pair();
+    const active = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(active.code, 'Bob');
+    const done = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(done.code, 'Bob');
+    await a.resign(done.id);
+    const invite = await a.createMatch(PARAMS, 'Ann');
+    // Bob offers Ann a rematch of the finished match: reserved for Ann, deleted with her data.
+    const offer = await b.rematch(done.id, PARAMS, 'Bob');
+    const other = await c.createMatch(PARAMS, 'Cy');
+
+    await a.deleteMyData();
+
+    const left = await b.listMatches();
+    const ids = left.map((m) => m.id);
+    expect(ids).not.toContain(invite.id);
+    expect(ids).not.toContain(offer.id);
+    expect(await b.getMatch(active.id)).toMatchObject({
+      status: 'finished',
+      resigned: 1,
+      winner: 0,
+      names: ['Bob', '?'],
+      opponentGone: true,
+    });
+    expect((await c.getMatch(other.id)).opponentGone).toBe(false);
+    expect((await b.getMatch(done.id)).names).toEqual(['Bob', '?']);
+    // Ann's old matches are no longer hers: she is a new player now.
+    expect(await a.listMatches()).toEqual([]);
+    expect(await code(a.getMatch(done.id))).toBe('notFound');
+    // Nobody to offer a rematch to any more.
+    expect(await code(b.rematch(active.id, PARAMS, 'Bob'))).toBe('notFound');
+    // Other players' matches are untouched.
+    expect(await c.getMatch(other.id)).toMatchObject({ status: 'open', names: [null, 'Cy'] });
+  });
+
+  it('deleting my data removes a rematch reserved for me', async () => {
+    const { a, b } = pair();
+    const m = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(m.code, 'Bob');
+    await b.resign(m.id);
+    const offer = await b.rematch(m.id, PARAMS, 'Bob');
+    expect(await a.getMatch(m.id)).toMatchObject({ rematch: offer.id });
+    await a.deleteMyData();
+    expect(await code(b.getMatch(offer.id))).toBe('notFound');
+    expect(await b.getMatch(m.id)).toMatchObject({ rematch: null, names: ['Bob', '?'] });
+  });
+
   it('cleans team names', () => {
     expect(cleanName('  Very long crew name here  ')).toBe('Very long crew n');
     expect(cleanName('a\u0007b\n')).toBe('ab');
@@ -316,6 +364,8 @@ describe('SupabaseOnline', () => {
         () => calls.find((c) => c.path === '/rest/v1/rpc/claim_timeout')?.body,
       ),
     ).toEqual({ match_id: 'u0' });
+    await s.deleteMyData().catch(() => undefined);
+    expect(calls.some((c) => c.path === '/rest/v1/rpc/delete_my_data')).toBe(true);
     await s.startTurn('u0', 3).catch(() => undefined);
     expect(calls.find((c) => c.path === '/rest/v1/rpc/start_turn')?.body).toEqual({
       match_id: 'u0',

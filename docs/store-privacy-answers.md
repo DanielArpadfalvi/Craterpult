@@ -224,8 +224,10 @@ használat nélkül (`20261008200000_retention.sql`, napi `pg_cron`).
 | **App activity → Other actions** (meccsek körei, eredmények) | Yes | No | No | Optional | App functionality |
 
 A „Device or other IDs” sor már szerepel (RevenueCat, Required) – egy típus csak egyszer
-jelölhető: maradjon **Required**, a célok összevonva (App functionality). Törlés: e-mailes kérés +
-automatikus törlés a fenti határidőkkel.
+jelölhető: maradjon **Required**, a célok összevonva (App functionality). Törlés: az appban
+(Beállítások → Online adataim törlése, `delete_my_data` RPC) + e-mailes kérés + automatikus törlés
+a fenti határidőkkel. A Play „Data deletion” kérdésénél a web-URL: a privacy oldal „Your rights”
+része.
 
 **App Store – App Privacy (1.1):**
 

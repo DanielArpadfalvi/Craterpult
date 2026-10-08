@@ -82,7 +82,30 @@ export function SettingsScreen({ s, actions }: Props) {
         />
       </Section>
       <Section title={t('settings.sectionData')}>
-        <ResetRow actions={actions} />
+        <ConfirmRow
+          testId="reset"
+          hint={t('settings.resetHint')}
+          button={t('settings.reset')}
+          question={t('settings.resetQuestion')}
+          confirm={t('settings.resetConfirm')}
+          done={t('settings.resetDone')}
+          onConfirm={() => {
+            actions.resetProgress();
+            return Promise.resolve(true);
+          }}
+        />
+        {s.online.available && (
+          <ConfirmRow
+            testId="delete-online"
+            hint={t('settings.deleteOnlineHint')}
+            button={t('settings.deleteOnline')}
+            question={t('settings.deleteOnlineQuestion')}
+            confirm={t('settings.deleteOnlineConfirm')}
+            done={t('settings.deleteOnlineDone')}
+            failed={t('settings.deleteOnlineFailed')}
+            onConfirm={() => actions.onlineDeleteData()}
+          />
+        )}
       </Section>
       <Section title={t('settings.sectionAbout')} testId="about">
         <LinkRow
@@ -173,23 +196,35 @@ function RestoreRow({ s, actions }: Props) {
   );
 }
 
-/** Two-step, in-page confirmation (no browser dialogs). */
-function ResetRow({ actions }: { actions: GameActions }) {
-  const [step, setStep] = useState<'idle' | 'confirm' | 'done'>('idle');
+/** Two-step, in-page confirmation (no browser dialogs) for a destructive action. */
+function ConfirmRow(p: {
+  testId: string;
+  hint: string;
+  button: string;
+  question: string;
+  confirm: string;
+  done: string;
+  failed?: string;
+  /** Resolves whether it worked. */
+  onConfirm: () => Promise<boolean>;
+}) {
+  const [step, setStep] = useState<'idle' | 'confirm' | 'busy' | 'done' | 'failed'>('idle');
+  const id = p.testId;
   return (
-    <div class="row row-stack" data-testid="reset-row">
-      {step === 'confirm' ? (
+    <div class="row row-stack" data-testid={`${id}-row`}>
+      {step === 'confirm' || step === 'busy' ? (
         <>
           <span class="row-text">
             <span class="row-label is-danger" role="alert">
-              {t('settings.resetQuestion')}
+              {p.question}
             </span>
           </span>
           <div class="row-buttons">
             <button
               type="button"
               class="btn btn-ghost"
-              data-testid="reset-cancel"
+              data-testid={`${id}-cancel`}
+              disabled={step === 'busy'}
               onClick={() => setStep('idle')}
             >
               {t('settings.resetCancel')}
@@ -197,33 +232,39 @@ function ResetRow({ actions }: { actions: GameActions }) {
             <button
               type="button"
               class="btn btn-danger"
-              data-testid="reset-confirm"
+              data-testid={`${id}-confirm`}
+              disabled={step === 'busy'}
               onClick={() => {
-                actions.resetProgress();
-                setStep('done');
+                setStep('busy');
+                void p.onConfirm().then((ok) => setStep(ok ? 'done' : 'failed'));
               }}
             >
-              {t('settings.resetConfirm')}
+              {p.confirm}
             </button>
           </div>
         </>
       ) : (
         <>
           <span class="row-text">
-            <span class="row-hint">{t('settings.resetHint')}</span>
+            <span class="row-hint">{p.hint}</span>
             {step === 'done' && (
-              <span class="row-label is-gold" role="status" data-testid="reset-done">
-                {t('settings.resetDone')}
+              <span class="row-label is-gold" role="status" data-testid={`${id}-done`}>
+                {p.done}
+              </span>
+            )}
+            {step === 'failed' && (
+              <span class="row-label is-danger" role="alert" data-testid={`${id}-failed`}>
+                {p.failed}
               </span>
             )}
           </span>
           <button
             type="button"
             class="btn btn-ghost btn-danger-ghost"
-            data-testid="reset-progress"
+            data-testid={id === 'reset' ? 'reset-progress' : id}
             onClick={() => setStep('confirm')}
           >
-            {t('settings.reset')}
+            {p.button}
           </button>
         </>
       )}

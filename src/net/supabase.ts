@@ -182,6 +182,13 @@ export class SupabaseOnline implements OnlineService {
     return toMatch(await this.rpc('claim_timeout', { match_id: id }));
   }
 
+  async deleteMyData(): Promise<void> {
+    await this.rpc('delete_my_data');
+    // The account is gone: forget its session so the next call signs in afresh.
+    this.session = null;
+    await this.o.storage.remove(SUPABASE_SESSION_KEY);
+  }
+
   async cancel(id: string): Promise<void> {
     await this.rpc('cancel_match', { match_id: id });
   }
@@ -243,6 +250,7 @@ function toMatch(raw: unknown): OnlineMatch {
     nextTeam: Number(r.nextTeam ?? -1),
     winner: r.winner === null || r.winner === undefined ? null : Number(r.winner),
     resigned: r.resigned === null || r.resigned === undefined ? null : Number(r.resigned),
+    opponentGone: r.opponentGone === true,
     startedTurn:
       r.startedTurn === null || r.startedTurn === undefined ? null : Number(r.startedTurn),
     timedOut: r.timedOut === null || r.timedOut === undefined ? null : Number(r.timedOut),

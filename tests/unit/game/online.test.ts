@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sanitizeParams } from '../../../src/core/online';
-import { createOnline } from '../../../src/game/online';
+import { createOnline, OUTBOX_KEY, PARTIAL_KEY } from '../../../src/game/online';
 import { INITIAL_UI } from '../../../src/game/state';
 import { createStore } from '../../../src/game/store';
 import { MockOnline, type KeyValue } from '../../../src/net/mock';
@@ -17,10 +17,11 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 function phone(db: KeyValue) {
   const results: boolean[] = [];
   const service = new MockOnline({ db, identity: kv() });
+  const storage = createMemoryStorage();
   const c = createOnline({
     store: createStore({ ...INITIAL_UI }),
     service,
-    storage: createMemoryStorage(),
+    storage,
     playerName: () => 'P',
     seed: () => 'seed',
     play: () => undefined,
@@ -29,7 +30,7 @@ function phone(db: KeyValue) {
     recordResult: (won) => results.push(won),
     t: (k) => k,
   });
-  return { c, service, results };
+  return { c, service, results, storage };
 }
 
 describe('online controller stats', () => {
@@ -58,5 +59,23 @@ describe('online controller stats', () => {
     await flush();
     expect(await a.c.firstFinish(m.id)).toBe(false);
     expect(a.results).toEqual([true]);
+  });
+
+  it('deleting online data clears the list and the queued turns on this phone', async () => {
+    const db = kv();
+    const a = phone(db);
+    const storage = a.storage;
+    await storage.set(OUTBOX_KEY, [{ matchId: 'x' }]);
+    await storage.set(PARTIAL_KEY, { 'x/0': { n: 0 } });
+    await a.service.createMatch(
+      sanitizeParams({ seed: 's', teamSize: 2, style: 'hills', turnSeconds: 30 }),
+      'A',
+    );
+    await a.c.actions.onlineRefresh();
+    expect(await a.c.actions.onlineDeleteData()).toBe(true);
+    expect(await storage.get(OUTBOX_KEY)).toEqual([]);
+    expect(await storage.get(PARTIAL_KEY)).toBeUndefined();
+    await a.c.actions.onlineRefresh();
+    expect(await a.service.listMatches()).toEqual([]);
   });
 });

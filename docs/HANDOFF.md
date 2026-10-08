@@ -45,7 +45,7 @@ Tesztek: 307 unit (`npm run check`), 42 e2e (`npm run test:e2e`, köztük `onlin
 1. CI (CI, Android, iOS) ellenőrzése a legutóbbi push után.
 2. Tulajdonos: RevenueCat (T8.4), Supabase + push (T9.2) – utána valódi eszközös teszt (vásárlás, két eszközös online meccs).
 3. 1.0 kiadás a store-okba (`docs/RELEASE.md`, checklisták); 1.1-hez adatvédelmi oldal + kérdőív frissítése.
-4. Következő ötletek: online adatok törlése az appból (önkiszolgáló GDPR), riválisok (ellenfelenkénti mérleg), iOS privacy manifest 1.1-hez – lásd `docs/SESSION-LOG.md` Next.
+4. Következő ötletek (kész: online adatok törlése az appból, T9.9): riválisok (ellenfelenkénti mérleg), iOS privacy manifest 1.1-hez – lásd `docs/SESSION-LOG.md` Next.
 5. Online továbbfejlesztés (ötletek): barátlista / legutóbbi ellenfelek gyors meghívása, online statisztika ellenfelenként. (Kész: visszavágó T9.3, időkorlát T9.4, kör-kezdés jelzés T9.5, push-bővítés T9.6.)
 
 ## 5. Dashboard
