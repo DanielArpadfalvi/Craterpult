@@ -1,13 +1,25 @@
 /**
  * Store screenshot definitions: device targets (capture + output sizes), the scenes and their
- * captions (EN + HU), and the HTML of the branded marketing frame a raw game capture is placed on.
+ * captions (EN, HU, DE, ES, PT-BR), and the HTML of the branded marketing frame a raw game capture is placed on.
  * Used by `tests/e2e/store-screens.spec.ts` (run with `npm run store:screens`).
  *
  * The iOS app is iPhone-only (TARGETED_DEVICE_FAMILY = 1 in the Xcode project), so there is no
  * iPad target. Add one here (13": 1032×1376 @2x) if the app ever ships for iPad.
  */
 
-export type StoreLang = 'en' | 'hu';
+export type StoreLang = 'en' | 'hu' | 'de' | 'es' | 'pt';
+
+/** Every language with a store listing (`store/listing/<lang>`). */
+export const STORE_LANGS: readonly StoreLang[] = ['en', 'hu', 'de', 'es', 'pt'];
+
+/** Store-screenshot details per language: the browser locale and the player's crew name. */
+export const STORE_LOCALE: Record<StoreLang, { locale: string; crew: string }> = {
+  en: { locale: 'en-US', crew: 'Crater Kings' },
+  hu: { locale: 'hu-HU', crew: 'Kráterkirályok' },
+  de: { locale: 'de-DE', crew: 'Kraterkönige' },
+  es: { locale: 'es-ES', crew: 'Reyes del Cráter' },
+  pt: { locale: 'pt-BR', crew: 'Reis da Cratera' },
+};
 
 export interface StoreTarget {
   /** Playwright project name and output folder (`store/screenshots/<lang>/<id>/`). */
@@ -72,6 +84,9 @@ export const SCENES: readonly SceneDef[] = [
     caption: {
       en: { title: 'Aim. Fling. *Blast!*', sub: 'Slingshot aiming · 5 bot levels' },
       hu: { title: 'Célozz, lőj, *robbants!*', sub: 'Csúzlis célzás · 5 bot-nehézség' },
+      de: { title: 'Zielen. Werfen. *Bumm!*', sub: 'Schleuder-Zielen · 5 Bot-Stufen' },
+      es: { title: 'Apunta, lanza, *¡bum!*', sub: 'Puntería de tirachinas · 5 niveles de bot' },
+      pt: { title: 'Mire, lance, *exploda!*', sub: 'Mira de estilingue · 5 níveis de bot' },
     },
   },
   {
@@ -88,6 +103,18 @@ export const SCENES: readonly SceneDef[] = [
         title: 'Minden lövés *krátert* hagy',
         sub: 'Teljesen rombolható terep · 5 pályatéma',
       },
+      de: {
+        title: 'Jeder Schuss reißt *einen Krater*',
+        sub: 'Komplett zerstörbares Gelände · 5 Kartenstile',
+      },
+      es: {
+        title: 'Cada disparo deja *un cráter*',
+        sub: 'Terreno totalmente destructible · 5 estilos de mapa',
+      },
+      pt: {
+        title: 'Cada tiro deixa *uma cratera*',
+        sub: 'Terreno totalmente destrutível · 5 estilos de mapa',
+      },
     },
   },
   {
@@ -101,6 +128,9 @@ export const SCENES: readonly SceneDef[] = [
         title: '*16* robbanékony fegyver',
         sub: 'Repeszbomba, légicsapás és még sok más',
       },
+      de: { title: '*16* explosive Waffen', sub: 'Splitterbomben, Luftschläge, Träger & mehr' },
+      es: { title: '*16* armas explosivas', sub: 'Bombas de racimo, ataques aéreos, vigas y más' },
+      pt: { title: '*16* armas explosivas', sub: 'Bombas de fragmentação, ataques aéreos e mais' },
     },
   },
   {
@@ -114,6 +144,12 @@ export const SCENES: readonly SceneDef[] = [
         title: '*30* küldetés vár rád',
         sub: '3 fejezet · gyűjts csillagokat, nyiss kalapokat',
       },
+      de: { title: '*30* Missionen warten', sub: '3 Kapitel · Sterne sammeln, Hüte freischalten' },
+      es: {
+        title: '*30* misiones por conquistar',
+        sub: '3 capítulos · gana estrellas y sombreros',
+      },
+      pt: { title: '*30* missões para conquistar', sub: '3 capítulos · ganhe estrelas e chapéus' },
     },
   },
   {
@@ -130,6 +166,18 @@ export const SCENES: readonly SceneDef[] = [
         title: 'Minden nap *új kihívás*',
         sub: 'Ugyanaz a csata mindenkinek · tartsd a sorozatot',
       },
+      de: {
+        title: 'Jeden Tag eine *neue Herausforderung*',
+        sub: 'Derselbe Kampf für alle · halte die Serie',
+      },
+      es: {
+        title: 'Un *desafío nuevo* cada día',
+        sub: 'La misma batalla para todos · mantén la racha',
+      },
+      pt: {
+        title: 'Um *desafio novo* todo dia',
+        sub: 'A mesma batalha para todos · mantenha a sequência',
+      },
     },
   },
   {
@@ -140,6 +188,9 @@ export const SCENES: readonly SceneDef[] = [
     caption: {
       en: { title: 'Make the crew *yours*', sub: 'Name, color & hats · pass & play on one phone' },
       hu: { title: 'Saját csapat, *saját stílus*', sub: 'Név, szín, kalap · ketten egy telefonon' },
+      de: { title: 'Deine Crew, *dein Stil*', sub: 'Name, Farbe, Hüte · zu zweit an einem Handy' },
+      es: { title: 'Tu tropa, *tu estilo*', sub: 'Nombre, color y sombreros · dos en un móvil' },
+      pt: { title: 'Sua trupe, *seu estilo*', sub: 'Nome, cor e chapéus · dois num celular' },
     },
   },
 ];

@@ -1,6 +1,6 @@
-# Store-adatlap szövegek (EN + HU)
+# Store-adatlap szövegek (EN, HU, DE, ES, PT-BR)
 
-Egy mező = egy fájl, nyelvenként (`en/`, `hu/`). Másold be őket a konzolba úgy, ahogy vannak
+Egy mező = egy fájl, nyelvenként (`en/`, `hu/`, `de/`, `es/`, `pt/` – a `pt` a brazil portugál: App Store „Portuguese (Brazil)”, Play „pt-BR”). Másold be őket a konzolba úgy, ahogy vannak
 (a záró sortörés nem számít bele). Ellenőrzés: `npm run store:check` (a `npm run check` része).
 
 | Fájl | Hova | Korlát |

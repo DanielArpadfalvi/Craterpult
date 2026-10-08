@@ -7,6 +7,8 @@ import type { Command, MatchState } from '../../src/core/types';
 import { createDefaultSave, SAVE_KEY, type SaveData } from '../../src/game/save';
 import {
   SCENES,
+  STORE_LANGS,
+  STORE_LOCALE,
   STORE_TARGETS,
   frameHtml,
   sceneFileName,
@@ -29,7 +31,7 @@ import {
 const OUT = 'store/screenshots';
 const RAW = 'node_modules/.cache/craterpult-store/raw';
 const TODAY = '2026-10-06';
-const LANGS: readonly StoreLang[] = ['en', 'hu'];
+const LANGS: readonly StoreLang[] = STORE_LANGS;
 /** Optional scene filter: `STORE_SCENES=aim,blast npm run store:screens`. */
 const ONLY = (process.env.STORE_SCENES ?? '').split(',').filter(Boolean);
 /** `STORE_COMPOSE_ONLY=1`: rebuild the frames from the last raw captures. */
@@ -64,7 +66,7 @@ function stagedSave(lang: StoreLang): SaveData {
   s.settings.language = lang;
   s.settings.sound = false;
   s.settings.aimPreview = 'long';
-  s.profile = { name: lang === 'hu' ? 'Kráterkirályok' : 'Crater Kings', color: 0, hat: 'crown' };
+  s.profile = { name: STORE_LOCALE[lang].crew, color: 0, hat: 'crown' };
   s.quick = { difficulty: 3, teamSize: 3, mapStyle: 'hills' };
   const ch1 = [3, 3, 2, 3, 3, 3, 2, 3, 3, 3];
   const ch2 = [3, 2, 3, 3, 2, 3, 3];
@@ -97,7 +99,7 @@ async function openGame(
     deviceScaleFactor: target.capture.scale,
     isMobile: true,
     hasTouch: true,
-    locale: lang === 'hu' ? 'hu-HU' : 'en-US',
+    locale: STORE_LOCALE[lang].locale,
   });
   await context.addInitScript(
     ([key, data]) => {
