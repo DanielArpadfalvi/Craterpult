@@ -2,7 +2,14 @@ import { ONLINE_MAP_STYLES, ONLINE_TURN_SECONDS } from '../core/online';
 import type { GameActions } from '../game/app';
 import { onlineCreateNeedsFull } from '../game/entitlement';
 import type { UiState } from '../game/state';
-import { isMyTurn, opponentName, rematchOffered, type OnlineMatch } from '../net/types';
+import {
+  canClaimTimeout,
+  isMyTurn,
+  opponentName,
+  rematchOffered,
+  replyLeft,
+  type OnlineMatch,
+} from '../net/types';
 import { t, type TranslationKey } from '../i18n';
 import { Page, Section } from './Page';
 import { FullVersionBadge, fvLock } from './Paywall';
@@ -18,9 +25,12 @@ const TEAM_SIZES = [2, 3, 4] as const;
 export function OnlineScreen({ s, actions }: Props) {
   const o = s.online;
   const invite = o.invite ? o.matches.find((m) => m.id === o.invite) : undefined;
-  // A rematch the opponent offered waits on the player like a turn does.
-  const mine = o.matches.filter((m) => (m.status === 'active' && isMyTurn(m)) || rematchOffered(m));
-  const theirs = o.matches.filter((m) => m.status === 'active' && !isMyTurn(m));
+  const now = Date.now();
+  // A rematch the opponent offered, or a win to claim, waits on the player like a turn does.
+  const waitsOnMe = (m: OnlineMatch): boolean =>
+    (m.status === 'active' && isMyTurn(m)) || rematchOffered(m) || canClaimTimeout(m, now);
+  const mine = o.matches.filter(waitsOnMe);
+  const theirs = o.matches.filter((m) => m.status === 'active' && !waitsOnMe(m));
   const open = o.matches.filter((m) => m.status === 'open');
   const finished = o.matches
     .filter((m) => m.status === 'finished' && !rematchOffered(m))
@@ -214,6 +224,7 @@ function NewMatchSection({ s, actions }: Props) {
           {t('online.create')}
           {locked && <FullVersionBadge />}
         </button>
+        <p class="online-note">{t('online.replyRule')}</p>
       </div>
     </Section>
   );
@@ -240,10 +251,25 @@ function MatchList({
   );
 }
 
-function statusText(m: OnlineMatch): string {
+/** "2d 5h" / "3h 20m" until the reply deadline. */
+export function formatLeft(ms: number): string {
+  const min = Math.ceil(ms / 60_000);
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  return d > 0 ? t('online.leftDays', { d, h }) : t('online.leftHours', { h, m: min % 60 });
+}
+
+function statusText(m: OnlineMatch, now: number): string {
   const name = opponentName(m) ?? '?';
   if (m.status === 'open') return m.code;
-  if (m.status === 'active') return t('online.turnN', { n: m.turnCount + 1 });
+  if (m.status === 'active') {
+    const turn = t('online.turnN', { n: m.turnCount + 1 });
+    if (canClaimTimeout(m, now)) return t('online.timeUpThem', { name });
+    const left = formatLeft(replyLeft(m, now));
+    return `${turn} · ${isMyTurn(m) ? t('online.leftYou', { left }) : t('online.leftThem', { left })}`;
+  }
+  if (m.timedOut !== null)
+    return m.timedOut === m.myTeam ? t('online.timedOutYou') : t('online.timedOutThem', { name });
   if (m.resigned !== null)
     return m.resigned === m.myTeam ? t('online.resignedYou') : t('online.resignedThem', { name });
   if (m.winner === m.myTeam) return t('online.won');
@@ -255,6 +281,8 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
   const name = opponentName(m);
   const mine = isMyTurn(m);
   const confirming = s.online.confirmResign === m.id;
+  const now = Date.now();
+  const claim = canClaimTimeout(m, now);
   return (
     <div class="row online-row" data-testid={`online-match-${m.id}`} data-status={m.status}>
       <button
@@ -265,9 +293,20 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
         onClick={() => void actions.onlineOpen(m.id)}
       >
         <strong>{name ? t('online.vs', { name }) : t('online.code')}</strong>
-        <small>{statusText(m)}</small>
+        <small>{statusText(m, now)}</small>
       </button>
-      {m.status === 'active' && (
+      {claim && (
+        <button
+          type="button"
+          class="btn btn-primary online-claim"
+          data-testid="online-claim"
+          disabled={s.online.busy}
+          onClick={() => void actions.onlineClaimTimeout(m.id)}
+        >
+          {t('online.claim')}
+        </button>
+      )}
+      {m.status === 'active' && !claim && (
         <button
           type="button"
           class={`btn btn-ghost online-resign${confirming ? ' is-confirm' : ''}`}
@@ -278,7 +317,7 @@ function MatchRow({ m, s, actions }: { m: OnlineMatch; s: UiState; actions: Game
         </button>
       )}
       {m.status === 'finished' && <RematchButton m={m} s={s} actions={actions} />}
-      {m.status === 'active' && (
+      {m.status === 'active' && !claim && (
         <span class={`online-pill${mine ? ' is-mine' : ''}`}>{mine ? t('online.play') : '…'}</span>
       )}
     </div>
@@ -315,6 +354,7 @@ export function WaitingOverlay({ s, actions }: Props) {
       <div class="panel">
         <h2>{t('online.waiting', { name: s.online.opponent })}</h2>
         <p class="dim">{t('online.waitingSub')}</p>
+        <WaitingDeadline s={s} actions={actions} />
         {s.online.sending > 0 && <p class="dim">{t('online.sending')}</p>}
         <button
           type="button"
@@ -326,6 +366,33 @@ export function WaitingOverlay({ s, actions }: Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+/** The opponent's reply time on the waiting card, and the claim button once it ran out. */
+function WaitingDeadline({ s, actions }: Props) {
+  const m = s.online.matches.find((x) => x.id === s.online.matchId);
+  if (!m || m.status !== 'active' || isMyTurn(m)) return null;
+  const now = Date.now();
+  if (!canClaimTimeout(m, now))
+    return (
+      <p class="dim" data-testid="online-deadline">
+        {t('online.leftThem', { left: formatLeft(replyLeft(m, now)) })}
+      </p>
+    );
+  return (
+    <>
+      <p>{t('online.timeUpThem', { name: s.online.opponent })}</p>
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-testid="online-claim"
+        disabled={s.online.busy}
+        onClick={() => void actions.onlineClaimTimeout(m.id)}
+      >
+        {t('online.claim')}
+      </button>
+    </>
   );
 }
 

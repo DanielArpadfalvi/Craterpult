@@ -89,6 +89,8 @@ export interface OnlineActions {
   onlineOpen(id: string): Promise<void>;
   onlineCancel(id: string): Promise<void>;
   onlineResign(id: string): Promise<void>;
+  /** Win a match whose opponent ran out of reply time. */
+  onlineClaimTimeout(id: string): Promise<void>;
   /** Offer a rematch of a finished match, or take up the opponent's offer (then play it). */
   onlineRematch(id: string): Promise<void>;
   onlineShare(id: string): Promise<void>;
@@ -304,6 +306,12 @@ export function createOnline(d: OnlineDeps): OnlineController {
       patch({ confirmResign: null });
       const m = await guard(() => service.resign(id));
       if (m) upsert(m);
+    },
+    async onlineClaimTimeout(id) {
+      const m = await guard(() => service.claimTimeout(id));
+      if (m) upsert(m);
+      // Too early after all (the server's clock decides): show the fresh state.
+      else void actions.onlineRefresh();
     },
     async onlineRematch(id) {
       const old = ui().matches.find((x) => x.id === id);

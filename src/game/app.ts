@@ -58,7 +58,7 @@ import { EdgeIndicators, type ColoredMarker } from '../render/indicators';
 import { cssColor, TEAM_COLORS } from '../render/palette';
 import { snapshot, WorldView, type Snapshot } from '../render/world';
 import { onlineEnv, selectOnline } from '../net/select';
-import type { OnlineMatch } from '../net/types';
+import { endedEarly, type OnlineMatch } from '../net/types';
 import { getPlatform } from '../platform';
 import { beginDaily, currentStreak, dateKey, finishDaily } from './daily';
 import { feedbackFor } from './feedback';
@@ -735,8 +735,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       bot: null,
       online: { play: new OnlinePlay(setup, m.myTeam), turns },
     });
-    // The opponent resigned meanwhile: nothing more will arrive.
-    if (m.status === 'finished' && m.resigned !== null) showResigned(m);
+    // The opponent resigned (or a player ran out of time) meanwhile: nothing more will arrive.
+    if (endedEarly(m)) showResigned(m);
   }
 
   function afterOnlineStep(s: MatchState): void {
@@ -756,6 +756,8 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
   function showResigned(m: OnlineMatch): void {
     loop.pause();
     stopOnlinePoll();
+    // The game-over card reads why it ended from the list.
+    patchOnline({ matches: [m, ...store.get().online.matches.filter((x) => x.id !== m.id)] });
     store.set({ overlay: 'over', winner: m.winner, weaponsOpen: false });
   }
 
@@ -789,12 +791,7 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
       }
       if (turns.length === 0) {
         const latest = await onlineService.getMatch(m.id).catch(() => null);
-        if (
-          latest &&
-          play === onlinePlay &&
-          latest.status === 'finished' &&
-          latest.resigned !== null
-        ) {
+        if (latest && play === onlinePlay && endedEarly(latest)) {
           onlineMatch = latest;
           showResigned(latest);
         }
@@ -1338,6 +1335,16 @@ export async function bootGame(stageEl: HTMLElement): Promise<GameHandle> {
     },
   };
   shop.gate(actions);
+  // Claiming the win from the waiting card ends the match on screen too.
+  const claimOnline = actions.onlineClaimTimeout;
+  actions.onlineClaimTimeout = async (id) => {
+    await claimOnline(id);
+    const m = store.get().online.matches.find((x) => x.id === id);
+    if (m && onlineMatch?.id === id && endedEarly(m)) {
+      onlineMatch = m;
+      showResigned(m);
+    }
+  };
   // A rematch asked for on the game-over card leaves the finished match first.
   const rematchOnline = actions.onlineRematch;
   actions.onlineRematch = async (id) => {

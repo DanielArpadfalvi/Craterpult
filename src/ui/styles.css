@@ -1708,3 +1708,10 @@ html.reduce-motion .team-fill {
   font-size: 12px;
   opacity: 0.7;
 }
+.online-claim {
+  flex: none;
+  width: auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 13px;
+}

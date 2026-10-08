@@ -5,7 +5,15 @@ import { cleanName, MockOnline, type KeyValue } from '../../../src/net/mock';
 import { selectOnline, UnavailableOnline } from '../../../src/net/select';
 import { errorCode, SUPABASE_SESSION_KEY, SupabaseOnline } from '../../../src/net/supabase';
 import type { OnlineError } from '../../../src/net/types';
-import { isMyTurn, opponentName, rematchOffered } from '../../../src/net/types';
+import {
+  canClaimTimeout,
+  endedEarly,
+  isMyTurn,
+  opponentName,
+  rematchOffered,
+  replyLeft,
+  REPLY_LIMIT_MS,
+} from '../../../src/net/types';
 
 function kv(): KeyValue {
   const m = new Map<string, string>();
@@ -141,6 +149,48 @@ describe('MockOnline', () => {
     expect(await a.getMatch(m.id)).toMatchObject({ rematch: again.id, rematchBy: 0 });
   });
 
+  it('reply limit: the waiting player can claim the win once the mover ran out of time', async () => {
+    const db = kv();
+    let clock = 1_000_000;
+    const now = (): number => clock;
+    const a = new MockOnline({ db, identity: kv(), now });
+    const b = new MockOnline({ db, identity: kv(), now });
+    const m = await a.createMatch(PARAMS, 'Ann');
+    const j = await b.joinMatch(m.code, 'Bob');
+    expect(replyLeft(j, clock)).toBe(REPLY_LIMIT_MS);
+    clock += REPLY_LIMIT_MS - 1;
+    // Bob is to move: Ann has to wait out the full limit, Bob can never claim his own turn.
+    expect(await code(a.claimTimeout(m.id))).toBe('conflict');
+    expect(canClaimTimeout(await a.getMatch(m.id), clock)).toBe(false);
+    clock += 1;
+    expect(await code(b.claimTimeout(m.id))).toBe('conflict');
+    expect(canClaimTimeout(await a.getMatch(m.id), clock)).toBe(true);
+    expect(canClaimTimeout(await b.getMatch(m.id), clock)).toBe(false);
+    const won = await a.claimTimeout(m.id);
+    expect(won).toMatchObject({ status: 'finished', winner: 1, timedOut: 0, nextTeam: -1 });
+    expect(endedEarly(won)).toBe(true);
+    expect(await code(b.submitTurn(m.id, turn(0, 0), { nextTeam: 1, winner: null }))).toBe(
+      'notYourTurn',
+    );
+    expect(await code(a.claimTimeout(m.id))).toBe('conflict');
+  });
+
+  it('every turn restarts the reply clock', async () => {
+    const db = kv();
+    let clock = 0;
+    const now = (): number => clock;
+    const a = new MockOnline({ db, identity: kv(), now });
+    const b = new MockOnline({ db, identity: kv(), now });
+    const m = await a.createMatch(PARAMS, 'Ann');
+    await b.joinMatch(m.code, 'Bob');
+    clock += REPLY_LIMIT_MS - 10;
+    await b.submitTurn(m.id, turn(0, 0), { nextTeam: 1, winner: null });
+    clock += REPLY_LIMIT_MS - 10;
+    expect(await code(b.claimTimeout(m.id))).toBe('conflict');
+    clock += 10;
+    expect(await b.claimTimeout(m.id)).toMatchObject({ winner: 0, timedOut: 1 });
+  });
+
   it('cleans team names', () => {
     expect(cleanName('  Very long crew name here  ')).toBe('Very long crew n');
     expect(cleanName('a\u0007b\n')).toBe('ab');
@@ -227,7 +277,7 @@ describe('SupabaseOnline', () => {
         return [200, { access_token: 'AT', refresh_token: 'RT', user: { id: 'me' } }];
       if (path === '/rest/v1/rpc/rematch_match') return [200, { ...VIEW, status: 'open' }];
       if (path === '/rest/v1/rpc/get_match')
-        return [200, { ...VIEW, status: 'finished', rematch: 'u2', rematchBy: 1 }];
+        return [200, { ...VIEW, status: 'finished', rematch: 'u2', rematchBy: 1, timedOut: 0 }];
       return [404, {}];
     });
     const s = new SupabaseOnline({
@@ -242,8 +292,14 @@ describe('SupabaseOnline', () => {
       params: PARAMS,
       name: 'Bob',
     });
+    expect(
+      await s.claimTimeout('u0').then(
+        () => calls.find((c) => c.path === '/rest/v1/rpc/claim_timeout')?.body,
+        () => calls.find((c) => c.path === '/rest/v1/rpc/claim_timeout')?.body,
+      ),
+    ).toEqual({ match_id: 'u0' });
     const old = await s.getMatch('u0');
-    expect(old).toMatchObject({ rematch: 'u2', rematchBy: 1 });
+    expect(old).toMatchObject({ rematch: 'u2', rematchBy: 1, timedOut: 0 });
     expect(rematchOffered(old)).toBe(true);
   });
 

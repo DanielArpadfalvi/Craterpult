@@ -1,6 +1,6 @@
 # Craterpult – átadási jegyzet (hideg indulás lokális sessionből)
 
-Utolsó frissítés: 2026-10-08 (T9.3 online visszavágó, `claude/funny-curie-v9b41i` ág). A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
+Utolsó frissítés: 2026-10-08 (T9.3 visszavágó, T9.4 válasz-időkorlát – a main-en). **Munkamód (tulajdonos kérése): közvetlenül a main-re dolgozz, és amint egy feladat kész, merge/push a main-re.** A felhős fejlesztés a tulajdonos kérésére leállt (credit), innen egy **lokális** Claude Code session folytatja. Olvasd el ezt, majd `CLAUDE.md`, `docs/PLAN.md`, `docs/TASKS.md`, `docs/RELEASE.md`, `docs/ONLINE.md`.
 
 ## 1. Hol tart a projekt
 
@@ -17,14 +17,14 @@ Körökre osztott artillery (Worms-szerű, saját IP) portré mobilra: rombolhat
 | M6 Beállítások, statisztika, csapat-testreszabás, vissza gomb, menü | ✅ (main: `9e2cfe1`) |
 | M7 Mobil héj (Capacitor, ikon/splash kódból, Android/iOS CI), T7.2 paywall | ✅ (T7.2 merge a main-re: 2026-10-06) |
 | M8 Kiadás 1.0 (store-szövegek, screenshot-generátor, adatvédelmi oldal, QA T8.1–T8.3) | ✅ kód kész; T8.4 tulajdonosi lépések: RevenueCat + sandbox vásárlás eszközön |
-| M9 1.1 online (aszinkron meccs) | ✅ kód kész, mock backenddel tesztelve; T9.3 visszavágó kész; T9.2: Supabase-projekt + push-kulcsok (tulajdonos), két eszközös teszt |
+| M9 1.1 online (aszinkron meccs) | ✅ kód kész, mock backenddel tesztelve; T9.3 visszavágó, T9.4 válasz-időkorlát kész; T9.2: Supabase-projekt + push-kulcsok (tulajdonos), két eszközös teszt |
 
-Tesztek: 291 unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
+Tesztek: 293 unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `online.spec.ts`). Párhuzamos e2e futtatáshoz: `PW_PORT=<port> npm run test:e2e`. CI, Android (debug APK → Releases `android-debug-latest`) és iOS (szimulátor) workflow a push után ellenőrizendő.
 
 ## 2. Félkész munkák és ágak
 
 - **M9 online:** `m9-online` ágon készült, merge-elve a main-re (2026-10-06). Részletek, döntés (Supabase), architektúra és a **tulajdonosi beállítási lépések**: `docs/ONLINE.md`. A játék csak az `OnlineService` interfészt látja; weben/tesztben localStorage-mock, natívon backend-config nélkül „nem érhető el”.
-- **T9.3 online visszavágó** + a `qa-pass-1007` ág (tesztworker-korlát, CI action v5) a `claude/funny-curie-v9b41i` ágon (2026-10-08) – merge-elendő a main-re. Új migráció: `supabase/migrations/20261008120000_rematch.sql` (PGlite-on ellenőrizve: mock-kal azonos szabályok).
+- **T9.3 online visszavágó**, **T9.4 válasz-időkorlát** és a `qa-pass-1007` ág a main-en (2026-10-08). Új migrációk: `20261008120000_rematch.sql`, `20261008140000_reply_timeout.sql` (PGlite-on ellenőrizve: a mock-kal azonos szabályok).
 - **T8.3** (orchestrator session agentje): kamera-túra a meccs elején, képernyőn kívüli ellenfél-nyilak, kampány-egyensúly (`npm run sim:campaign`), HUD csak változáskor – a main-en (`8a90b5c`).
 - Régi ágak a remote-on: `t7.2-paywall`, `t3.3-themes` (merge-elve, csak archívum).
 
@@ -45,7 +45,7 @@ Tesztek: 291 unit (`npm run check`), 40 e2e (`npm run test:e2e`, köztük `onlin
 1. CI (CI, Android, iOS) ellenőrzése a legutóbbi push után.
 2. Tulajdonos: RevenueCat (T8.4), Supabase + push (T9.2) – utána valódi eszközös teszt (vásárlás, két eszközös online meccs).
 3. 1.0 kiadás a store-okba (`docs/RELEASE.md`, checklisták); 1.1-hez adatvédelmi oldal + kérdőív frissítése.
-4. Online továbbfejlesztés (ötletek): kör-kezdés jelzése a szervernek (újrapróbálás ellen), válasz-időkorlát, push a visszavágó-ajánlatról, barátlista. (Visszavágó: kész, T9.3.)
+4. Online továbbfejlesztés (ötletek): kör-kezdés jelzése a szervernek (újrapróbálás ellen), push a visszavágó-ajánlatról és a lejárat előtti emlékeztető, barátlista. (Kész: visszavágó T9.3, időkorlát T9.4.)
 
 ## 5. Dashboard
 

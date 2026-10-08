@@ -365,12 +365,35 @@ function PassOverlay({ s, actions }: ViewProps) {
   );
 }
 
+/** Why an online match ended without a final shot (resigned / out of time). */
+function EarlyEndNote({ s }: { s: UiState }) {
+  const m = s.online.matches.find((x) => x.id === s.online.matchId);
+  if (!m || m.status !== 'finished') return null;
+  const name = s.online.opponent;
+  const text =
+    m.timedOut !== null
+      ? m.timedOut === m.myTeam
+        ? t('online.timedOutYou')
+        : t('online.timedOutThem', { name })
+      : m.resigned !== null
+        ? m.resigned === m.myTeam
+          ? t('online.resignedYou')
+          : t('online.resignedThem', { name })
+        : null;
+  return text ? (
+    <p class="dim" data-testid="online-end-reason">
+      {text}
+    </p>
+  ) : null;
+}
+
 function OverOverlay({ s, actions }: ViewProps) {
   const winner = s.teams.find((tm) => tm.id === s.winner);
   return (
     <div class="overlay" data-testid="game-over">
       <div class="panel" style={winner ? { '--team': winner.color } : undefined}>
         <h2 class="win-title">{winner ? t('over.win', { team: winner.name }) : t('over.draw')}</h2>
+        {s.mode === 'online' && <EarlyEndNote s={s} />}
         {s.mode === 'online' && s.online.matchId && (
           <button
             type="button"

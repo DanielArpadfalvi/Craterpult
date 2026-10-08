@@ -171,3 +171,48 @@ test('online: a wrong code shows an error', async ({ page }) => {
   await page.getByTestId('join-submit').click();
   await expect(page.getByTestId('online-error')).toBeVisible();
 });
+
+test('online: after 72 hours without a move the opponent claims the win', async ({ context }) => {
+  test.setTimeout(120_000);
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  const errors = [...(await boot(host, '&full')), ...(await boot(guest, ''))];
+  await host.getByTestId('open-online').click();
+  await host.getByTestId('online-create').click();
+  const code = (await host.getByTestId('invite-code').textContent())!.trim();
+  await guest.getByTestId('open-online').click();
+  await guest.getByTestId('join-code').fill(code);
+  await guest.getByTestId('join-submit').click();
+  await expect(guest.getByTestId('hud')).toBeVisible();
+  await guest.getByTestId('pause').click();
+  await guest.getByTestId('quit').click();
+
+  // The guest is to move; the host sees the clock running and no claim yet.
+  await host.getByTestId('online-refresh').click();
+  const row = host.locator('[data-status="active"]');
+  await expect(row).toContainText('left');
+  await expect(host.getByTestId('online-claim')).toHaveCount(0);
+  await host.screenshot({ path: `${SHOTS}/online-deadline.png` });
+
+  // Three days pass on the (mock) server.
+  await host.evaluate(() => {
+    const key = 'craterpult.mockOnline.v1';
+    const db = JSON.parse(localStorage.getItem(key)!) as {
+      matches: Record<string, { updatedAt: number }>;
+    };
+    for (const m of Object.values(db.matches)) m.updatedAt -= 73 * 3600 * 1000;
+    localStorage.setItem(key, JSON.stringify(db));
+  });
+  await host.getByTestId('online-refresh').click();
+  await host.screenshot({ path: `${SHOTS}/online-claim.png` });
+  await host.getByTestId('online-claim').click();
+  await expect(host.locator('[data-status="finished"]')).toContainText('ran out of time');
+
+  // The guest opens the match and sees it ended.
+  await guest.getByTestId('online-refresh').click();
+  await expect(guest.locator('[data-status="finished"]')).toContainText('You ran out of time');
+  await guest.locator('[data-status="finished"] [data-testid="online-open"]').click();
+  await expect(guest.getByTestId('game-over')).toBeVisible();
+  await expect(guest.getByTestId('online-end-reason')).toHaveText('You ran out of time');
+  expect(errors).toEqual([]);
+});

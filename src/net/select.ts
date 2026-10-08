@@ -18,6 +18,7 @@ export class UnavailableOnline implements OnlineService {
   submitTurn = (): Promise<never> => this.fail();
   resign = (): Promise<never> => this.fail();
   rematch = (): Promise<never> => this.fail();
+  claimTimeout = (): Promise<never> => this.fail();
   cancel = (): Promise<void> => this.fail();
   registerPushToken = (): Promise<void> => this.fail();
 }

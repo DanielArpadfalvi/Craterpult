@@ -7,7 +7,7 @@ import {
   type TurnOutcome,
   type TurnRecord,
 } from '../core/online';
-import { OnlineError, type OnlineMatch, type OnlineService } from './types';
+import { OnlineError, REPLY_LIMIT_MS, type OnlineMatch, type OnlineService } from './types';
 
 /** Synchronous key-value backend (localStorage / sessionStorage, or a Map in tests). */
 export interface KeyValue {
@@ -29,6 +29,7 @@ interface Row {
   nextTeam: number;
   winner: number | null;
   resigned: number | null;
+  timedOut?: number | null;
   updatedAt: number;
   /** Only this player may join (a rematch), or null. */
   reserved?: string | null;
@@ -101,6 +102,7 @@ export class MockOnline implements OnlineService {
       nextTeam: r.nextTeam,
       winner: r.winner,
       resigned: r.resigned,
+      timedOut: r.timedOut ?? null,
       updatedAt: r.updatedAt,
       rematch: r.rematch ?? null,
       rematchBy: r.rematchBy ?? null,
@@ -255,6 +257,29 @@ export class MockOnline implements OnlineService {
       old.rematch = row.id;
       old.rematchBy = old.players.indexOf(me);
       old.updatedAt = this.now();
+      this.save(db);
+      return Promise.resolve(this.view(row));
+    } catch (e) {
+      return Promise.reject(e as Error);
+    }
+  }
+
+  claimTimeout(id: string): Promise<OnlineMatch> {
+    try {
+      const db = this.load();
+      const row = this.member(db, id);
+      const seat = row.players.indexOf(this.me());
+      if (
+        row.status !== 'active' ||
+        row.nextTeam === seat ||
+        this.now() - row.updatedAt < REPLY_LIMIT_MS
+      )
+        throw new OnlineError('conflict');
+      row.status = 'finished';
+      row.timedOut = 1 - seat;
+      row.winner = seat;
+      row.nextTeam = -1;
+      row.updatedAt = this.now();
       this.save(db);
       return Promise.resolve(this.view(row));
     } catch (e) {
